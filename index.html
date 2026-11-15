@@ -1,0 +1,2545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brickwright Build Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  /* layout: a white studio. The model is the only color on the page; type and rules stay black and gray. */
+  --paper: #ffffff;
+  --stage-a: #f1f2f0;
+  --stage-b: #d9dcd8;
+  --ink: #111315;
+  --ink-2: #5c6167;
+  --line: #e1e3df;
+  --wash: #f4f5f3;
+  --hot: #ff6a00;      /* new parts in a step, progress */
+  --good: #1d7f4b;
+  --paint: #184632;    /* follows the chosen body color */
+  --display: 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
+  --body: 'Hanken Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3, p { margin: 0; }
+h1, h2 { text-wrap: balance; }
+[hidden] { display: none !important; }
+
+#app { height: 100%; display: flex; flex-direction: column; }
+
+/* ---------- top bar ---------- */
+.top { display: flex; align-items: center; gap: 28px; padding: 0 24px; height: 56px; flex: none; border-bottom: 1px solid var(--line); background: var(--paper); }
+.brand { font-family: var(--display); font-stretch: 125%; font-weight: 700; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; white-space: nowrap; }
+.tabs { display: flex; gap: 4px; height: 100%; }
+.tabs a { display: flex; align-items: center; gap: 8px; padding: 0 12px; text-decoration: none; color: var(--ink-2); font-size: 14px; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs a i { font-style: normal; font-family: var(--display); font-stretch: 125%; font-size: 10px; font-weight: 600; width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--ink-2); }
+.tabs a:hover { color: var(--ink); }
+.tabs a.on { color: var(--ink); border-bottom-color: var(--ink); }
+.tabs a.on i { background: var(--ink); color: #fff; border-color: var(--ink); }
+.tabs a.lab { margin-left: 12px; }
+.meta { margin-left: auto; font-size: 13px; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 8px; }
+.meta b { font-weight: 500; color: var(--ink); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--paint); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18); display: inline-block; flex: none; }
+
+/* ---------- main grid ---------- */
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
+main[data-view='parts'], main[data-view='photo-lab'] { grid-template-columns: minmax(0, 1fr); }
+main[data-view='parts'] .stage, main[data-view='photo-lab'] .stage, main[data-view='parts'] .panel, main[data-view='photo-lab'] .panel { display: none; }
+.stage { position: relative; min-height: 0; overflow: hidden; background: radial-gradient(120% 90% at 50% 38%, var(--stage-a) 0%, var(--stage-a) 38%, var(--stage-b) 100%); }
+#viewer { position: absolute; inset: 0; }
+.stage-ui { position: absolute; inset: 0; pointer-events: none; }
+.stage-ui > * { pointer-events: auto; }
+.panel { border-left: 1px solid var(--line); overflow-y: auto; min-height: 0; background: var(--paper); }
+.wide { overflow-y: auto; min-height: 0; }
+
+/* title block on the stage */
+.plate { position: absolute; left: 28px; top: 24px; max-width: min(520px, 70%); pointer-events: none; }
+.eyebrow { font-family: var(--display); font-stretch: 125%; font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
+.plate h1 { font-family: var(--display); font-stretch: 125%; font-weight: 700; font-size: clamp(30px, 4.6vw, 58px); line-height: 0.95; letter-spacing: -0.01em; text-transform: uppercase; margin-top: 8px; }
+.plate .sub { font-family: var(--display); font-stretch: 100%; font-size: clamp(15px, 1.6vw, 20px); font-weight: 400; margin-top: 6px; }
+.specs { display: flex; gap: 22px; margin-top: 16px; flex-wrap: wrap; }
+.specs div { font-size: 12px; color: var(--ink-2); }
+.specs b { display: block; font-family: var(--display); font-stretch: 112%; font-weight: 600; font-size: 17px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.stage-ui .back { position: absolute; left: 24px; top: 20px; display: none; background: rgba(255, 255, 255, 0.9); }
+.stage-ui.focus .back { display: inline-flex; }
+.stage-ui.focus .plate, .stage-ui.focus .fine { display: none; }
+.fine { position: absolute; left: 28px; bottom: 76px; font-size: 11px; color: var(--ink-2); max-width: 420px; pointer-events: none; }
+
+.dock { position: absolute; left: 20px; right: 20px; bottom: 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.chips { display: flex; gap: 2px; background: rgba(255, 255, 255, 0.86); border: 1px solid var(--line); border-radius: 999px; padding: 3px; backdrop-filter: blur(8px); }
+.chips button { border: 0; background: none; padding: 6px 12px; border-radius: 999px; font-size: 13px; color: var(--ink-2); }
+.chips button:hover { color: var(--ink); }
+.chips button.on { background: var(--ink); color: #fff; }
+.slide { display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.86); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 13px; color: var(--ink-2); backdrop-filter: blur(8px); }
+.slide input { width: 120px; accent-color: var(--ink); }
+.dock .push { margin-left: auto; }
+
+.tip { position: fixed; z-index: 30; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; padding: 6px 10px; border-radius: 8px; transform: translate(12px, 14px); max-width: 280px; }
+.tip small { display: block; opacity: 0.7; font-variant-numeric: tabular-nums; }
+
+/* ---------- panel pieces ---------- */
+.p-head { padding: 26px 28px 20px; }
+.p-head h2 { font-family: var(--display); font-stretch: 112%; font-size: 24px; font-weight: 600; line-height: 1.1; margin-top: 8px; }
+.lede { color: var(--ink-2); margin-top: 8px; max-width: 62ch; }
+.grp { padding: 18px 28px; border-top: 1px solid var(--line); }
+.grp h3 { font-family: var(--display); font-stretch: 125%; font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 12px; }
+.grp.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; }
+.note { font-size: 13px; color: var(--ink-2); margin-top: 10px; }
+.note b { color: var(--ink); font-weight: 500; }
+
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, 34px); gap: 10px; }
+.sw { width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16); position: relative; }
+.sw.on::after { content: ''; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--ink); }
+
+.seg { display: flex; border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { flex: 1; border: 0; background: none; border-radius: 7px; padding: 7px 6px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.seg button:hover { color: var(--ink); }
+.seg button.on { background: var(--ink); color: #fff; }
+
+.tg { display: flex; align-items: center; gap: 14px; padding: 9px 0; border: 0; background: none; width: 100%; text-align: left; }
+.tg + .tg { border-top: 1px solid var(--wash); }
+.tg span { flex: 1; }
+.tg span small { display: block; color: var(--ink-2); font-size: 12.5px; }
+.tg i { flex: none; width: 38px; height: 22px; border-radius: 999px; background: #cfd2cd; position: relative; transition: background 0.15s; }
+.tg i::after { content: ''; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.tg[aria-pressed='true'] i { background: var(--ink); }
+.tg[aria-pressed='true'] i::after { transform: translateX(16px); }
+.tg:disabled { opacity: 0.45; cursor: default; }
+
+table.acc { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.acc th { text-align: right; font-weight: 500; color: var(--ink-2); font-size: 11.5px; padding: 0 0 6px 8px; }
+table.acc th:first-child, table.acc td:first-child { text-align: left; padding-left: 0; }
+table.acc td { text-align: right; padding: 6px 0 6px 8px; border-top: 1px solid var(--wash); }
+table.acc td.d { font-weight: 500; }
+table.acc td.d.off { color: #a34a00; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); font-weight: 500; font-size: 14px; text-decoration: none; white-space: nowrap; }
+.btn:hover { border-color: var(--ink); }
+.btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn.primary:hover { background: #2a2d31; }
+.btn.small { height: 34px; padding: 0 12px; font-size: 13px; border-radius: 8px; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.cta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 18px 28px 28px; border-top: 1px solid var(--line); position: sticky; bottom: 0; background: linear-gradient(to top, #fff 82%, rgba(255, 255, 255, 0)); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.field { display: grid; gap: 5px; font-size: 12.5px; color: var(--ink-2); }
+.field input, .field select, .code { height: 40px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; font-size: 14px; color: var(--ink); background: #fff; width: 100%; min-width: 0; }
+.code { font-variant-numeric: tabular-nums; font-size: 12.5px; flex: 1; }
+
+ul.details { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+ul.details button { width: 100%; text-align: left; border: 0; background: none; padding: 9px 10px; border-radius: 10px; display: grid; gap: 2px; }
+ul.details button:hover, ul.details button.on { background: var(--wash); }
+ul.details b { font-weight: 500; }
+ul.details span { font-size: 12.5px; color: var(--ink-2); }
+ul.details em { font-style: normal; font-size: 12.5px; color: var(--ink); }
+
+/* ---------- build ---------- */
+.b-head { padding: 24px 28px 6px; }
+.b-step { display: flex; align-items: flex-end; gap: 16px; margin-top: 6px; }
+.b-num { font-family: var(--display); font-stretch: 125%; font-weight: 700; font-size: 92px; line-height: 0.8; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.b-of { font-size: 13px; color: var(--ink-2); padding-bottom: 4px; font-variant-numeric: tabular-nums; }
+.b-title { font-family: var(--display); font-stretch: 112%; font-size: 23px; font-weight: 600; line-height: 1.12; margin-top: 18px; }
+.b-text { font-size: 16.5px; line-height: 1.5; margin-top: 10px; max-width: 46ch; }
+.b-tip { margin-top: 12px; padding: 10px 12px; border-left: 2px solid var(--hot); background: #fff6ee; font-size: 14px; border-radius: 0 8px 8px 0; }
+.callout { margin: 18px 28px 0; border: 1.5px solid var(--ink); border-radius: 14px; padding: 12px; background: #f6f9fb; }
+.callout h3 { font-family: var(--display); font-stretch: 125%; font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 8px; }
+.need { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.need div { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 26px 8px 8px; text-align: center; font-size: 11.5px; line-height: 1.25; color: var(--ink-2); position: relative; }
+.need img { width: 64px; height: 64px; display: block; margin: 0 auto 4px; background: #e6e8e4; border-radius: 10px; }
+.need b { position: absolute; left: 8px; top: 6px; font-family: var(--display); font-stretch: 112%; font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.b-nav { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; padding: 18px 28px 10px; position: sticky; bottom: 0; background: linear-gradient(to top, #fff 86%, rgba(255, 255, 255, 0)); }
+.b-nav .btn { height: 52px; font-size: 16px; }
+.b-extra { padding: 0 28px 24px; display: flex; gap: 8px; flex-wrap: wrap; }
+.rail { position: absolute; left: 20px; right: 20px; top: 18px; display: flex; gap: 4px; }
+.rail button { flex: var(--n) 1 0; border: 0; padding: 0; background: none; text-align: left; min-width: 0; }
+.rail button span { display: block; height: 5px; border-radius: 3px; background: rgba(17, 19, 21, 0.12); overflow: hidden; }
+.rail button span::after { content: ''; display: block; height: 100%; width: var(--p); background: var(--hot); }
+.rail button em { display: block; font-style: normal; font-size: 11px; color: var(--ink-2); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail button.on em { color: var(--ink); font-weight: 600; }
+
+/* ---------- parts ---------- */
+.two-col { display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 100%; }
+.two-col > .col { padding: 28px 32px 48px; min-width: 0; }
+.two-col > aside { border-left: 1px solid var(--line); padding: 28px; }
+.h-row { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.h-row h2 { font-family: var(--display); font-stretch: 112%; font-size: 30px; font-weight: 600; line-height: 1.05; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0; }
+.filters button { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--ink-2); }
+.filters button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.lots { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.lot { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; grid-template-columns: 76px 1fr; gap: 4px 10px; align-items: center; background: #fff; }
+.lot.done { background: var(--wash); }
+.lot img { width: 76px; height: 76px; background: #e6e8e4; border-radius: 12px; }
+.lot .q { font-family: var(--display); font-stretch: 112%; font-weight: 700; font-size: 24px; line-height: 1; font-variant-numeric: tabular-nums; }
+.lot .n { font-size: 12.5px; line-height: 1.25; margin-top: 4px; }
+.lot .id { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.lot .id i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2); flex: none; }
+.have { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--wash); padding-top: 8px; margin-top: 4px; font-size: 12.5px; color: var(--ink-2); }
+.have button { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: #fff; line-height: 1; }
+.have b { color: var(--ink); min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.have .all { margin-left: auto; width: auto; padding: 0 8px; font-size: 12px; }
+.sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 18px; }
+.sum div { font-size: 12px; color: var(--ink-2); }
+.sum b { display: block; font-family: var(--display); font-stretch: 112%; font-size: 26px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stack { display: grid; gap: 8px; }
+ol.how { margin: 12px 0 0; padding-left: 20px; display: grid; gap: 8px; font-size: 14px; }
+.side-h { font-family: var(--display); font-stretch: 125%; font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); margin: 26px 0 10px; }
+.side-h:first-child { margin-top: 0; }
+
+/* ---------- stickers ---------- */
+.sheet { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--wash); padding: 12px; }
+.sheet canvas { width: 100%; height: auto; display: block; background: #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12); }
+.where { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; }
+.where li { display: grid; grid-template-columns: 110px 1fr; gap: 10px; }
+.where b { font-weight: 500; }
+
+/* ---------- photo lab ---------- */
+.drop { border: 1.5px dashed #b9bdb6; border-radius: 14px; padding: 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--wash); margin-top: 18px; }
+.drop.over { border-color: var(--ink); background: #fff; }
+.drop p { flex: 1; min-width: 200px; color: var(--ink-2); font-size: 14px; }
+.mos { margin-top: 18px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.mos canvas { width: 100%; height: auto; display: block; border-radius: 6px; }
+.mos figure { margin: 0; }
+.mos figcaption { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+.secs { display: grid; gap: 4px; margin-top: 8px; }
+.secs button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 5px 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.secs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; margin-top: 10px; font-size: 12.5px; }
+.legend div { display: flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
+.legend i { width: 18px; height: 18px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2); flex: none; font-style: normal; font-size: 10px; display: grid; place-items: center; color: var(--t); font-weight: 600; }
+.legend span { margin-left: auto; color: var(--ink-2); }
+.range { display: grid; grid-template-columns: 90px 1fr 36px; gap: 10px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.range input { accent-color: var(--ink); width: 100%; }
+.brief { border: 1px solid var(--line); border-radius: 12px; padding: 14px; font-size: 14px; display: grid; gap: 8px; }
+.brief h4 { margin: 0; font-size: 15px; font-weight: 600; }
+.brief ul { margin: 0; padding-left: 18px; }
+
+/* ---------- overlays ---------- */
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px; z-index: 60; max-width: 90vw; }
+.modal { position: fixed; inset: 0; background: rgba(17, 19, 21, 0.45); z-index: 50; display: grid; place-items: center; padding: 20px; }
+.sheet-modal { background: #fff; border-radius: 18px; padding: 26px; width: min(560px, 100%); max-height: 90%; overflow: auto; position: relative; }
+.sheet-modal h2 { font-family: var(--display); font-stretch: 112%; font-size: 24px; font-weight: 600; line-height: 1.1; }
+.sheet-modal p { margin-top: 10px; color: var(--ink-2); }
+.sheet-modal textarea { width: 100%; height: 200px; margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+.sheet-modal .row { margin-top: 16px; }
+.bar { height: 6px; border-radius: 3px; background: var(--wash); overflow: hidden; margin-top: 16px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--hot); transition: width 0.2s; }
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 55; }
+
+/* ---------- narrow screens ---------- */
+.m-only { display: none; }
+@media (max-width: 940px) {
+  #app { height: auto; min-height: 100%; }
+  .top { flex-wrap: wrap; height: auto; padding: 10px 16px 0; gap: 4px 16px; }
+  .tabs { order: 3; width: 100%; overflow-x: auto; height: 44px; }
+  .tabs a { padding: 0 10px; }
+  .tabs a.lab { margin-left: 4px; }
+  main { display: block; }
+  .stage { height: min(104vw, 560px); }
+  .specs { display: none; }
+  .dock { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .dock::-webkit-scrollbar { display: none; }
+  .dock > * { flex: none; }
+  .dock .push { margin-left: 0; }
+  .tabs a { font-size: 13.5px; gap: 6px; }
+  .tabs a i { display: none; }
+  .meta { font-size: 12px; }
+  .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .wide { overflow: visible; }
+  .two-col { display: block; }
+  .two-col > .col { padding: 22px 16px 28px; }
+  .two-col > aside { border-left: 0; border-top: 1px solid var(--line); padding: 22px 16px 40px; }
+  .plate { left: 16px; top: 14px; }
+  .plate h1 { font-size: 26px; margin-top: 4px; }
+  .plate .sub { font-size: 14px; margin-top: 2px; }
+  .fine { display: none; }
+  .m-only { display: block; }
+  .dock { left: 10px; right: 10px; bottom: 10px; gap: 8px; }
+  .slide input { width: 80px; }
+  .rail { left: 10px; right: 10px; top: 10px; }
+  .rail button em { display: none; }
+  .p-head, .grp, .b-head { padding-left: 16px; padding-right: 16px; }
+  .callout { margin-left: 16px; margin-right: 16px; }
+  .cta, .b-nav, .b-extra { padding-left: 16px; padding-right: 16px; }
+  .b-num { font-size: 68px; }
+  .mos { grid-template-columns: 1fr; }
+  .lots { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <a class="brand" href="#design">Brickwright</a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#design" data-view="design"><i>1</i>Design</a>
+      <a href="#parts" data-view="parts"><i>2</i>Parts</a>
+      <a href="#build" data-view="build"><i>3</i>Build</a>
+      <a href="#stickers" data-view="stickers"><i>4</i>Stickers</a>
+      <a href="#photo-lab" data-view="photo-lab" class="lab">Photo Lab</a>
+    </nav>
+    <div class="meta" id="topMeta"></div>
+  </header>
+  <main id="main" data-view="design">
+    <section class="stage" id="stage" aria-label="3D model">
+      <div id="viewer"></div>
+      <div class="stage-ui" id="stageUI"></div>
+    </section>
+    <aside class="panel" id="panel"></aside>
+    <section class="wide" id="wide" hidden></section>
+  </main>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="modal" id="modal" hidden></div>
+<canvas id="confetti" hidden></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+window.BW_PUBLIC = true;
+/* ---- catalog.js ---- */
+/* Brickwright catalog: colors and parts.
+   Part numbers are BrickLink catalog item numbers. Color ids are BrickLink color ids. */
+(function (root) {
+  const BW = (root.BW = root.BW || {});
+
+  BW.STUD_MM = 8;      // stud pitch
+  BW.PLATE_MM = 3.2;   // plate height
+
+  BW.COLORS = {
+    white:     { bl: 1,   name: 'White',             hex: '#F2F3F2' },
+    tan:       { bl: 2,   name: 'Tan',               hex: '#E4CD9E' },
+    yellow:    { bl: 3,   name: 'Yellow',            hex: '#F2CD37' },
+    orange:    { bl: 4,   name: 'Orange',            hex: '#FE8A18' },
+    red:       { bl: 5,   name: 'Red',               hex: '#C91A09' },
+    blue:      { bl: 7,   name: 'Blue',              hex: '#0055BF' },
+    black:     { bl: 11,  name: 'Black',             hex: '#1B1D21' },
+    sandgreen: { bl: 48,  name: 'Sand Green',        hex: '#A0BCAC' },
+    sandblue:  { bl: 55,  name: 'Sand Blue',         hex: '#6074A1' },
+    dkred:     { bl: 59,  name: 'Dark Red',          hex: '#720E0F' },
+    dkblue:    { bl: 63,  name: 'Dark Blue',         hex: '#0A3463' },
+    dktan:     { bl: 69,  name: 'Dark Tan',          hex: '#958A73' },
+    dkgreen:   { bl: 80,  name: 'Dark Green',        hex: '#184632' },
+    dbg:       { bl: 85,  name: 'Dark Bluish Gray',  hex: '#6C6E68' },
+    lbg:       { bl: 86,  name: 'Light Bluish Gray', hex: '#A0A5A9' },
+    olive:     { bl: 155, name: 'Olive Green',       hex: '#9B9A5A' },
+    trclear:   { bl: 12,  name: 'Trans-Clear',       hex: '#E6F2F5', trans: true },
+    trbrown:   { bl: 13,  name: 'Trans-Brown',       hex: '#5C5048', trans: true },
+    trltblue:  { bl: 15,  name: 'Trans-Light Blue',  hex: '#AEE9EF', trans: true },
+    trred:     { bl: 17,  name: 'Trans-Red',         hex: '#C91A09', trans: true },
+    tryellow:  { bl: 19,  name: 'Trans-Yellow',      hex: '#F5CD2F', trans: true },
+    trorange:  { bl: 98,  name: 'Trans-Orange',      hex: '#F08F1C', trans: true },
+  };
+
+  // k: geometry kind. d: [w, l, h] in studs, studs, plates at yaw 0.
+  // studs: 'all' | 'none' | 'row1' (far row only). cat: catalog group shown in the parts list.
+  const P = {};
+  const add = (id, n, k, d, cat, extra) => { P[id] = Object.assign({ id, n, k, d, cat, studs: k === 'tile' ? 'none' : 'all' }, extra || {}); };
+
+  // Bricks
+  add('3005', 'Brick 1 x 1', 'brick', [1, 1, 3], 'Bricks');
+  add('3004', 'Brick 1 x 2', 'brick', [1, 2, 3], 'Bricks');
+  add('3065', 'Brick 1 x 2 without Bottom Tube', 'brick', [1, 2, 3], 'Bricks');
+  add('3622', 'Brick 1 x 3', 'brick', [1, 3, 3], 'Bricks');
+  add('3010', 'Brick 1 x 4', 'brick', [1, 4, 3], 'Bricks');
+  add('3009', 'Brick 1 x 6', 'brick', [1, 6, 3], 'Bricks');
+  add('3008', 'Brick 1 x 8', 'brick', [1, 8, 3], 'Bricks');
+  add('3003', 'Brick 2 x 2', 'brick', [2, 2, 3], 'Bricks');
+  add('3002', 'Brick 2 x 3', 'brick', [2, 3, 3], 'Bricks');
+  add('3001', 'Brick 2 x 4', 'brick', [2, 4, 3], 'Bricks');
+  add('2456', 'Brick 2 x 6', 'brick', [2, 6, 3], 'Bricks');
+  // Plates
+  add('3024', 'Plate 1 x 1', 'plate', [1, 1, 1], 'Plates');
+  add('3023', 'Plate 1 x 2', 'plate', [1, 2, 1], 'Plates');
+  add('3623', 'Plate 1 x 3', 'plate', [1, 3, 1], 'Plates');
+  add('3710', 'Plate 1 x 4', 'plate', [1, 4, 1], 'Plates');
+  add('3666', 'Plate 1 x 6', 'plate', [1, 6, 1], 'Plates');
+  add('3460', 'Plate 1 x 8', 'plate', [1, 8, 1], 'Plates');
+  add('4477', 'Plate 1 x 10', 'plate', [1, 10, 1], 'Plates');
+  add('3022', 'Plate 2 x 2', 'plate', [2, 2, 1], 'Plates');
+  add('3021', 'Plate 2 x 3', 'plate', [2, 3, 1], 'Plates');
+  add('3020', 'Plate 2 x 4', 'plate', [2, 4, 1], 'Plates');
+  add('3795', 'Plate 2 x 6', 'plate', [2, 6, 1], 'Plates');
+  add('3034', 'Plate 2 x 8', 'plate', [2, 8, 1], 'Plates');
+  add('3832', 'Plate 2 x 10', 'plate', [2, 10, 1], 'Plates');
+  add('3031', 'Plate 4 x 4', 'plate', [4, 4, 1], 'Plates');
+  add('3032', 'Plate 4 x 6', 'plate', [4, 6, 1], 'Plates');
+  add('41539', 'Plate 8 x 8', 'plate', [8, 8, 1], 'Plates');
+  // Tiles
+  add('3070b', 'Tile 1 x 1 with Groove', 'tile', [1, 1, 1], 'Tiles');
+  add('3069b', 'Tile 1 x 2 with Groove', 'tile', [1, 2, 1], 'Tiles');
+  add('2431', 'Tile 1 x 4', 'tile', [1, 4, 1], 'Tiles');
+  add('6636', 'Tile 1 x 6', 'tile', [1, 6, 1], 'Tiles');
+  add('3068b', 'Tile 2 x 2 with Groove', 'tile', [2, 2, 1], 'Tiles');
+  add('63864', 'Tile 1 x 3', 'tile', [1, 3, 1], 'Tiles');
+  add('4162', 'Tile 1 x 8', 'tile', [1, 8, 1], 'Tiles');
+  add('87079', 'Tile 2 x 4', 'tile', [2, 4, 1], 'Tiles');
+  // Round
+  add('98138', 'Tile, Round 1 x 1', 'roundtile', [1, 1, 1], 'Lights', { studs: 'none' });
+  add('4073', 'Plate, Round 1 x 1', 'roundplate', [1, 1, 1], 'Round');
+  add('3062b', 'Brick, Round 1 x 1 Open Stud', 'roundbrick', [1, 1, 3], 'Round');
+  // Modified and special
+  add('87087', 'Brick, Modified 1 x 1 with Stud on Side', 'sidestud', [1, 1, 3], 'Special bricks');
+  add('2877', 'Brick, Modified 1 x 2 with Grille', 'grille', [2, 1, 3], 'Special bricks');
+  add('2458', 'Brick, Modified 1 x 2 with Pin', 'pinbrick', [2, 1, 3], 'Special bricks');
+  add('61252', 'Plate, Modified 1 x 1 with Open O Clip (Horizontal Grip)', 'clip', [1, 1, 1], 'Special plates');
+  add('30157', 'Plate, Modified 2 x 4 with Pins', 'axle', [4, 2, 1], 'Special plates');
+  add('54200', 'Slope 30 1 x 1 x 2/3', 'cheese', [1, 1, 2], 'Slopes', { studs: 'none' });
+  add('85984', 'Slope 30 1 x 2 x 2/3', 'slope2', [2, 1, 2], 'Slopes', { studs: 'none' });
+  add('11477', 'Slope, Curved 2 x 1 x 2/3', 'curved', [1, 2, 2], 'Slopes', { studs: 'none' });
+  add('2412b', 'Tile, Modified 1 x 2 Grille with Bottom Groove', 'grilletile', [1, 2, 1], 'Tiles', { studs: 'none' });
+  add('99781', 'Bracket 1 x 2 - 1 x 2', 'bracket', [2, 1, 1], 'Special plates');
+  add('4592c02', 'Antenna Small Base with Black Lever', 'lever', [1, 1, 3], 'Interior', { studs: 'none' });
+  add('4176', 'Windscreen 2 x 6 x 2', 'windscreen', [6, 2, 6], 'Glass', { studs: 'row1' });
+  add('4079', 'Minifigure, Utensil Seat (Chair) 2 x 2', 'seat', [2, 2, 5], 'Interior', { studs: 'none' });
+  add('3829c01', 'Vehicle, Steering Stand 1 x 2 with Black Steering Wheel', 'steering', [2, 1, 3], 'Interior', { studs: 'none' });
+  add('55981', 'Wheel 18mm D. x 14mm with Pin Hole, Fake Bolts and Shallow Spokes', 'wheel', [0, 0, 0], 'Wheels', { studs: 'none' });
+  add('30391', 'Tire 30.4 x 14 Offset Tread', 'tyre', [0, 0, 0], 'Wheels', { studs: 'none', dia: 30.4 });
+  add('30648', 'Tire 24 x 14 Shallow Tread', 'tyre', [0, 0, 0], 'Wheels', { studs: 'none', dia: 24 });
+
+  BW.PARTS = P;
+
+  // lookup of plain box parts by kind and footprint
+  const BOX = {};
+  Object.values(P).forEach((p) => {
+    if (p.k === 'brick' || p.k === 'plate' || p.k === 'tile') {
+      if (p.id === '3065') return; // only used for transparent colors
+      BOX[p.k + ':' + p.d[0] + 'x' + p.d[1]] = p.id;
+    }
+  });
+  BW.boxPart = function (kind, a, b, colorKey) {
+    const w = Math.min(a, b), l = Math.max(a, b);
+    if (kind === 'brick' && w === 1 && l === 2 && BW.COLORS[colorKey] && BW.COLORS[colorKey].trans) return '3065';
+    const id = BOX[kind + ':' + w + 'x' + l];
+    if (!id) throw new Error('No catalog part for ' + kind + ' ' + w + 'x' + l);
+    return id;
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = BW;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ---- model-grenadier.js ---- */
+/* Grenadier station wagon, 8 studs wide, about 1:30. Second design pass, drawn from reference photos.
+   Coordinates: x 0..8 across (0 = vehicle left), y 0..20 front to rear, z in plates (0 = underside of the wheel holders). */
+(function (root) {
+  const BW = root.BW || (typeof require !== 'undefined' ? require('./catalog.js') : {});
+
+  const PAINTS = [
+    { key: 'white', like: 'Scottish White', tier: 'core' },
+    { key: 'dktan', like: 'Magic Mushroom', tier: 'wide' },
+    { key: 'dkblue', like: 'Britannia Blue', tier: 'wide' },
+    { key: 'sandblue', like: 'Eldoret Blue', tier: 'check' },
+    { key: 'dkgreen', like: 'Sela Green', tier: 'wide' },
+    { key: 'black', like: 'Inky Black', tier: 'core' },
+    { key: 'dbg', like: 'Donny Grey', tier: 'core' },
+    { key: 'lbg', like: 'Sterling Silver', tier: 'core' },
+    { key: 'dkred', like: "Queen's Red", tier: 'wide' },
+    { key: 'red', like: 'Devil Red', tier: 'core' },
+    { key: 'olive', like: null, tier: 'check' },
+    { key: 'tan', like: null, tier: 'core' },
+    { key: 'yellow', like: null, tier: 'core' },
+    { key: 'orange', like: null, tier: 'wide' },
+    { key: 'sandgreen', like: null, tier: 'check' },
+  ];
+
+  const DEFAULTS = {
+    paint: 'white', roof: 'body', glass: 'trbrown', wheels: 'black', tyres: 'offroad', drive: 'lhd', seats: 'black',
+    spare: true, rack: true, gear: false, snorkel: true, checker: true, safari: true, lightbar: false,
+  };
+
+  const OPTIONS = {
+    roof: [['body', 'Body color'], ['white', 'White'], ['black', 'Black']],
+    glass: [['trbrown', 'Smoke'], ['trclear', 'Clear'], ['trltblue', 'Light blue']],
+    wheels: [['black', 'Black'], ['lbg', 'Steel gray'], ['white', 'White']],
+    tyres: [['offroad', 'Off-road 30.4 mm'], ['road', 'Road 24 mm']],
+    drive: [['lhd', 'Left-hand drive'], ['rhd', 'Right-hand drive']],
+    seats: [['black', 'Black'], ['dktan', 'Saddle'], ['lbg', 'Gray']],
+    toggles: [
+      ['spare', 'Spare wheel', 'Full-size spare on the big rear door'],
+      ['rack', 'Roof rack', 'Black platform rack on four crossbars'],
+      ['gear', 'Expedition gear', 'Crate, duffel and two fuel cans (needs the rack)'],
+      ['snorkel', 'Raised air intake', 'Runs up the right windshield pillar'],
+      ['checker', 'Checker plates', 'Black tread plates on the front fender tops'],
+      ['safari', 'Safari windows', 'Two glass panels set flush in the roof over the front seats'],
+      ['lightbar', 'Roof light bar', 'Four lamps above the windshield'],
+    ],
+  };
+
+  const REAL = {
+    name: 'INEOS Grenadier Station Wagon',
+    length: 4896, body: 4683, width: 1930, height: 2036, wheelbase: 2922, frontOverhang: 887, rearOverhang: 874, tyre: 804,
+  };
+
+  function build(userCfg) {
+    const cfg = Object.assign({}, DEFAULTS, userCfg || {});
+    if (!cfg.rack) cfg.gear = false;
+    const PARTS = BW.PARTS;
+    const parts = [], steps = [];
+    let cur = null;
+
+    const body = cfg.paint;
+    const roofC = cfg.roof === 'body' ? body : cfg.roof;
+    const K = 'black';
+    const glass = cfg.glass;
+    const seatC = cfg.seats;
+
+    function step(stage, title, text, tip) {
+      cur = { n: steps.length + 1, stage, title, text, tip: tip || '', parts: [] };
+      steps.push(cur);
+    }
+    function put(p) { p.i = parts.length; p.step = cur.n; parts.push(p); cur.parts.push(p.i); return p; }
+    function box(kind, x, y, z, w, l, color, tag) {
+      // catalog boxes are defined short side across; turn them when the long side runs across the vehicle
+      return put({ pid: BW.boxPart(kind, w, l, color), color, x, y, z, w, l, h: kind === 'brick' ? 3 : 1, yaw: w > l ? 90 : 0, mode: 'up', tag });
+    }
+    const B = (x, y, z, w, l, c, tag) => box('brick', x, y, z, w, l, c, tag);
+    const Pl = (x, y, z, w, l, c, tag) => box('plate', x, y, z, w, l, c, tag);
+    const T = (x, y, z, w, l, c, tag) => box('tile', x, y, z, w, l, c, tag);
+    function X(pid, x, y, z, yaw, color, tag) {
+      const d = PARTS[pid].d, sw = yaw === 90 || yaw === 270;
+      return put({ pid, color, x, y, z, w: sw ? d[1] : d[0], l: sw ? d[0] : d[1], h: d[2], yaw, mode: 'up', tag });
+    }
+    // a part pushed onto a sideways stud. dir -1 faces the front, +1 faces the rear
+    function side(pid, color, host, dir, tag, o) {
+      o = o || {};
+      const th = 0.4;
+      const face = o.face != null ? o.face : host.mode === 'snot' ? (dir < 0 ? host.box[1] : host.box[4]) : (dir < 0 ? host.y : host.y + host.l);
+      const y0 = dir < 0 ? face - th : face, y1 = y0 + th;
+      const cx = o.cx != null ? o.cx : host.mode === 'snot' ? host.c[0] : host.x + 0.5;
+      const cz = o.cz != null ? o.cz : host.mode === 'snot' ? host.c[2] : host.z + 1.5;
+      const wx = o.wx || 1, hz = o.hz || 2.5;
+      return put({ pid, color, mode: 'snot', axis: 'y', dir, host: host.i, pre: o.pre || 0, c: [cx, (y0 + y1) / 2, cz], box: [cx - wx / 2, y0, cz - hz / 2, cx + wx / 2, y1, cz + hz / 2], tag });
+    }
+    const tyreId = cfg.tyres === 'road' ? '30648' : '30391';
+    const Rmm = cfg.tyres === 'road' ? 12 : 15.2;
+    const Rp = Rmm / BW.PLATE_MM, Rs = Rmm / BW.STUD_MM;
+    function wheel(host, c, axis, dir, tag) {
+      const hw = 0.875;
+      const bx = axis === 'x'
+        ? [c[0] - hw, c[1] - Rs, c[2] - Rp, c[0] + hw, c[1] + Rs, c[2] + Rp]
+        : [c[0] - Rs, c[1] - hw, c[2] - Rp, c[0] + Rs, c[1] + hw, c[2] + Rp];
+      const tyre = put({ pid: tyreId, color: 'black', mode: 'tyre', axis, dir, host: host.i, c, R: Rs, box: bx, tag });
+      put({ pid: '55981', color: cfg.wheels, mode: 'wheel', axis, dir, host: host.i, inside: tyre.i, c, R: 9 / BW.STUD_MM, box: bx, tag });
+    }
+
+    /* ---------- Stage 1: chassis ---------- */
+    step('Chassis', 'Lay out the frame',
+      'Find the two wheel holders. They are the flat plates with a pin on each end. Put them on the table with the pins pointing left and right, then put the long black plate between them like the picture.',
+      'Leave a one-stud gap between each wheel holder and the long plate. The next step locks everything together.');
+    const axF = X('30157', 2, 3, 0, 0, K, 'axle');
+    const axR = X('30157', 2, 15, 0, 0, K, 'axle');
+    Pl(3, 5, 0, 2, 10, K);
+
+    step('Chassis', 'Add the floor',
+      'Press the big black square plate onto the middle of the long plate. Add a gray 4 x 6 plate at the front and another at the back. Each gray plate sits on a wheel holder.',
+      'The gray plates are the skid plates. On the real truck they protect the engine and the fuel tank from rocks.');
+    Pl(0, 6, 1, 8, 8, K, 'sill');
+    Pl(2, 0, 1, 4, 6, 'lbg', 'skid');
+    Pl(2, 14, 1, 4, 6, 'lbg', 'skid');
+
+    /* ---------- Stage 2: front end ---------- */
+    step('Front end', 'Build the bumper',
+      'Put a black 2 x 2 plate beside each front corner of the gray plate. Lay the black 1 x 8 plate across all three, one stud back from the front edge. Along the very front put a black 1 x 3 tile, the bracket piece, and another 1 x 3 tile. The bracket hangs down in front.',
+      'The long plate and the tiles sit half on a corner plate and half on the gray plate. That is what holds the corners on.');
+    Pl(0, 0, 1, 2, 2, K, 'bumper');
+    Pl(6, 0, 1, 2, 2, K, 'bumper');
+    Pl(0, 1, 2, 8, 1, K);
+    T(0, 0, 2, 3, 1, K, 'bumper');
+    const bracket = X('99781', 3, 0, 2, 0, K, 'bumper');
+    T(5, 0, 2, 3, 1, K, 'bumper');
+
+    step('Front end', 'Engine block and chin',
+      'Behind the bumper, lay a body-color 1 x 8 plate on top of the black one. Then drop in two black 2 x 4 bricks, one behind the other, down the middle.');
+    Pl(0, 1, 3, 8, 1, body, 'chin');
+    B(2, 2, 2, 4, 2, K);
+    B(2, 4, 2, 4, 2, K);
+
+    step('Front end', 'Make the face',
+      'Build the front row on the body-color plate. From left to right: a body-color light brick, a black light brick, two black grille bricks, a black light brick and a body-color light brick.',
+      'Light bricks have a stud on one side. Point all four studs forward.');
+    const hlL = X('87087', 0, 1, 4, 0, body, 'lampbrick');
+    const auxL = X('87087', 1, 1, 4, 0, K, 'lampbrick');
+    X('2877', 2, 1, 4, 0, K, 'grille');
+    X('2877', 4, 1, 4, 0, K, 'grille');
+    const auxR = X('87087', 6, 1, 4, 0, K, 'lampbrick');
+    const hlR = X('87087', 7, 1, 4, 0, body, 'lampbrick');
+
+    step('Front end', 'Wheel arch flares',
+      'Add two black 4 x 4 plates side by side on the engine bricks. Each one hangs out over the place where a front wheel will go.',
+      'These are the black flares over the front wheels.');
+    Pl(0, 2, 5, 4, 4, K, 'flare');
+    Pl(4, 2, 5, 4, 4, K, 'flare');
+
+    step('Front end', 'Front deck',
+      'Cover the black plates. Put the 2 x 8 plate across the front. Behind it put the 1 x 6 plate in the middle and a 1 x 2 plate on each outside edge, pointing backward.');
+    Pl(0, 2, 6, 8, 2, body);
+    Pl(1, 4, 6, 6, 1, body);
+    Pl(0, 4, 6, 1, 2, body);
+    Pl(7, 4, 6, 1, 2, body);
+
+    /* ---------- Stage 3: cabin ---------- */
+    step('Cabin', 'Start the doors',
+      'On each side of the big black plate, add a 1 x 6 brick at the front and a 1 x 2 brick behind it. These are the bottoms of the doors.');
+    B(0, 6, 2, 1, 6, body, 'door');
+    B(0, 12, 2, 1, 2, body, 'door');
+    B(7, 6, 2, 1, 6, body, 'door');
+    B(7, 12, 2, 1, 2, body, 'door');
+
+    const sx = cfg.drive === 'rhd' ? 5 : 1;
+    step('Cabin', 'Fit out the floor',
+      'Inside the cabin, put a black 1 x 6 brick across the front for the dashboard. Behind it add the black 1 x 2 brick on the driver side and the black 2 x 3 brick in the middle. Near the back, put in the 2 x 6 brick for the rear seat and a black 1 x 6 brick behind it.');
+    B(1, 6, 2, 6, 1, K);
+    B(sx, 7, 2, 2, 1, K);
+    B(3, 7, 2, 2, 3, K, 'console');
+    B(1, 11, 2, 6, 2, seatC, 'bench');
+    B(1, 13, 2, 6, 1, K);
+
+    step('Cabin', 'Seats and controls',
+      'Press in the two front seats. Put the steering wheel on the black 1 x 2 brick. On the middle brick add, from front to back: the small black slope with its low side toward the seats, the gray 1 x 2 tile, and the two levers side by side.',
+      'The slope is the big touchscreen. The two levers are the gear selector and the low-range lever, just like the real cabin.');
+    X('4079', 1, 8, 2, 0, seatC, 'seat');
+    X('4079', 5, 8, 2, 0, seatC, 'seat');
+    X('3829c01', sx, 7, 5, 0, K, 'steering');
+    X('85984', 3, 7, 5, 180, K, 'screen');
+    T(3, 8, 5, 2, 1, 'dbg', 'switches');
+    X('4592c02', 3, 9, 5, 0, K, 'lever');
+    X('4592c02', 4, 9, 5, 0, K, 'lever');
+
+    step('Cabin', 'Dashboard',
+      'Put a black 1 x 6 plate on the dashboard brick and a 1 x 6 brick on the back edge of the rear seat. Now lock the front end to the cabin: lay the body-color 2 x 6 plate so it sits half on the dashboard and half on the black flare plates. Finish the dashboard with two more black 1 x 6 plates.',
+      'This 2 x 6 plate is the most important joint in the truck. Press it down hard.');
+    Pl(1, 6, 5, 6, 1, K);
+    B(1, 12, 5, 6, 1, seatC);
+    Pl(1, 5, 6, 6, 2, body);
+    Pl(1, 6, 7, 6, 1, K, 'dash');
+    Pl(1, 6, 8, 6, 1, K, 'dash');
+
+    /* ---------- Stage 4: hood ---------- */
+    step('Hood', cfg.checker ? 'Checker plates' : 'Fender tops',
+      (cfg.checker
+        ? 'Cover the top of each front fender with black grille tiles, laid crosswise. Start at the light bricks and work back.'
+        : 'Cover the top of each front fender with a smooth 2 x 4 tile, then a 1 x 2 tile behind it.')
+      + (cfg.snorkel ? ' On the right side, the last row is different: a 1 x 1 tile on the inside and a 1 x 1 plate on the outside. The plate is where the air intake will stand.' : ''),
+      cfg.checker ? 'The real truck has tread plates here so you can stand on the fenders.' : '');
+    if (cfg.checker) {
+      for (let y = 1; y <= 5; y++) X('2412b', 0, y, 7, 90, K, 'checker');
+      for (let y = 1; y <= 4; y++) X('2412b', 6, y, 7, 90, K, 'checker');
+      if (cfg.snorkel) { T(6, 5, 7, 1, 1, K, 'checker'); Pl(7, 5, 7, 1, 1, body); } else X('2412b', 6, 5, 7, 90, K, 'checker');
+    } else {
+      T(0, 1, 7, 2, 4, body); T(0, 5, 7, 2, 1, body);
+      T(6, 1, 7, 2, 4, body);
+      if (cfg.snorkel) { T(6, 5, 7, 1, 1, body); Pl(7, 5, 7, 1, 1, body); } else T(6, 5, 7, 2, 1, body);
+    }
+
+    step('Hood', 'Shape the nose',
+      'Put four curved slopes side by side across the front of the hood, low end forward. Behind them lay two 2 x 3 plates side by side.',
+      'The curved slopes give the hood its rounded front edge.');
+    for (let x = 2; x <= 5; x++) X('11477', x, 1, 7, 0, body, 'hood');
+    Pl(2, 3, 7, 2, 3, body);
+    Pl(4, 3, 7, 2, 3, body);
+
+    step('Hood', 'Hood top and vents',
+      'Lay the smooth 1 x 4 tile behind the curved slopes. Behind it put the 2 x 2 tile in the middle, with a black grille tile on each side, pointing front to back.',
+      'The two black grilles are the hood vents. They let hot air out of the engine bay.');
+    T(2, 3, 8, 4, 1, body, 'hood');
+    T(3, 4, 8, 2, 2, body, 'hood');
+    X('2412b', 2, 4, 8, 0, K, 'vent');
+    X('2412b', 5, 4, 8, 0, K, 'vent');
+
+    /* ---------- Stage 5: rear body ---------- */
+    step('Rear body', 'Build up the back axle',
+      'Put two black 2 x 4 bricks on the rear gray plate, one behind the other.');
+    B(2, 14, 2, 4, 2, K);
+    B(2, 16, 2, 4, 2, K);
+
+    step('Rear body', 'Start the tail',
+      'Put a black 2 x 2 plate beside each rear corner of the gray plate. Lock each one on with a 2 x 3 brick. On each outside corner add a 1 x 1 brick and, at the very back, a light brick with its side stud pointing backward.',
+      'Same trick as the front bumper: each 2 x 3 brick sits on both plates.');
+    Pl(0, 18, 1, 2, 2, K, 'bumper');
+    Pl(6, 18, 1, 2, 2, K, 'bumper');
+    B(1, 18, 2, 3, 2, body);
+    B(4, 18, 2, 3, 2, body);
+    B(0, 18, 2, 1, 1, body);
+    B(7, 18, 2, 1, 1, body);
+    const tlLL = X('87087', 0, 19, 2, 180, body, 'lampbrick');
+    const tlRL = X('87087', 7, 19, 2, 180, body, 'lampbrick');
+
+    step('Rear body', 'Build the rear doors',
+      cfg.spare
+        ? 'Across the very back, build one row: a light brick, a 1 x 3 brick, the brick with the pin, a 1 x 1 brick and another light brick. The pin points backward. It will carry the spare wheel. Add a 1 x 1 plate just in front of each light brick.'
+        : 'Across the very back, build one row: a light brick, a 1 x 3 brick, a 1 x 2 brick, a 1 x 1 brick and another light brick. Add a 1 x 1 plate just in front of each light brick.',
+      'The 1 x 3 brick is the small door. The other bricks make the big door. The real doors split 30/70 the same way.');
+    const tlLU = X('87087', 0, 19, 5, 180, body, 'lampbrick');
+    B(1, 19, 5, 3, 1, body, 'rear-door');
+    const pinBrick = cfg.spare ? X('2458', 4, 19, 5, 0, body, 'rear-door') : B(4, 19, 5, 2, 1, body, 'rear-door');
+    B(6, 19, 5, 1, 1, body, 'rear-door');
+    const tlRU = X('87087', 7, 19, 5, 180, body, 'lampbrick');
+    Pl(0, 18, 5, 1, 1, body);
+    Pl(7, 18, 5, 1, 1, body);
+
+    /* ---------- Stage 6: body sides ---------- */
+    step('Body sides', 'Door tops and rear flares',
+      'Put a 1 x 8 plate on top of the door bricks on each side. Then add two black 4 x 4 plates side by side over the back axle, just like the front.');
+    Pl(0, 6, 5, 1, 8, body);
+    Pl(7, 6, 5, 1, 8, body);
+    Pl(0, 14, 5, 4, 4, K, 'flare');
+    Pl(4, 14, 5, 4, 4, K, 'flare');
+
+    step('Body sides', 'Utility belt',
+      'Now the stripe. On each side, working from the front: one orange see-through 1 x 1 plate, a black 1 x 4 plate, a body-color 1 x 1 plate, a black 1 x 3 plate and a body-color 1 x 4 plate. Then put the black 4 x 6 plate in the middle of the cargo area.',
+      'The black strips are the utility belt. Owners clip gear to them. The orange plate is the side marker light.');
+    [0, 7].forEach((x) => {
+      Pl(x, 6, 6, 1, 1, 'trorange', 'marker');
+      Pl(x, 7, 6, 1, 4, K, 'belt');
+      Pl(x, 11, 6, 1, 1, body);
+      Pl(x, 12, 6, 1, 3, K, 'belt');
+      Pl(x, 15, 6, 1, 4, body);
+    });
+    Pl(2, 13, 6, 4, 6, K);
+
+    step('Body sides', 'Lock the sides together',
+      'On each side lay two 1 x 6 plates in a line on top of the stripe, then a 1 x 1 plate at the back.',
+      'Each plate covers the joints in the layer below. That is what makes the body strong.');
+    [0, 7].forEach((x) => { Pl(x, 6, 7, 1, 6, body); Pl(x, 12, 7, 1, 6, body); Pl(x, 18, 7, 1, 1, body); });
+
+    step('Body sides', 'Window sill',
+      'Go along the top edge of each side: a 1 x 1 plate, the black clip plate with its clip pointing out, a 1 x 6 plate, a 1 x 2 plate and a black 1 x 3 plate. Finish with the 1 x 8 plate across the back.',
+      'The black clips are the door mirrors. The black 1 x 3 plate is the utility rail under the rear window.');
+    Pl(0, 6, 8, 1, 1, body);
+    X('61252', 0, 7, 8, 0, K, 'mirror');
+    Pl(0, 8, 8, 1, 6, body);
+    Pl(0, 14, 8, 1, 2, body);
+    Pl(0, 16, 8, 1, 3, K, 'belt');
+    Pl(7, 6, 8, 1, 1, body);
+    X('61252', 7, 7, 8, 180, K, 'mirror');
+    Pl(7, 8, 8, 1, 6, body);
+    Pl(7, 14, 8, 1, 2, body);
+    Pl(7, 16, 8, 1, 3, K, 'belt');
+    Pl(0, 19, 8, 8, 1, body);
+
+    /* ---------- Stage 7: windows ---------- */
+    step('Windows', 'Fit the windshield',
+      'Press the windshield onto the black dashboard plate with the glass leaning back. Put a small slope beside each bottom corner, low side to the front.');
+    X('4176', 1, 6, 9, 0, glass, 'windshield');
+    X('54200', 0, 6, 9, 0, body);
+    X('54200', 7, 6, 9, 0, body);
+
+    function sideLower(x) {
+      B(x, 7, 9, 1, 1, body);
+      B(x, 8, 9, 1, 2, glass); B(x, 10, 9, 1, 1, glass);
+      B(x, 11, 9, 1, 1, body);
+      B(x, 12, 9, 1, 2, glass); B(x, 14, 9, 1, 1, glass);
+      B(x, 15, 9, 1, 1, body);
+      B(x, 16, 9, 1, 2, glass); B(x, 18, 9, 1, 1, glass);
+      B(x, 19, 9, 1, 1, body);
+    }
+    function sideUpper(x) {
+      B(x, 7, 12, 1, 1, body);
+      B(x, 8, 12, 1, 1, glass); B(x, 9, 12, 1, 2, glass);
+      B(x, 11, 12, 1, 1, body);
+      B(x, 12, 12, 1, 1, glass); B(x, 13, 12, 1, 2, glass);
+      B(x, 15, 12, 1, 1, body);
+      B(x, 16, 12, 1, 1, glass); B(x, 17, 12, 1, 2, glass);
+      B(x, 19, 12, 1, 1, body);
+    }
+    step('Windows', 'Left windows, bottom row',
+      'Work along the left side from front to back. Pillar bricks are body color and window bricks are see-through. The pattern is: pillar, 1 x 2 glass, 1 x 1 glass, pillar, 1 x 2 glass, 1 x 1 glass, pillar, 1 x 2 glass, 1 x 1 glass, pillar.',
+      'Three windows, four pillars. Count them off as you go.');
+    sideLower(0);
+    step('Windows', 'Right windows, bottom row',
+      'Do the same on the right side: pillar, 1 x 2 glass, 1 x 1 glass, and repeat until you reach the back corner.');
+    sideLower(7);
+    step('Windows', 'Rear windows, bottom row',
+      'Fill in the back between the two corner pillars: a 1 x 2 glass brick, one body-color 1 x 1 brick, another 1 x 2 glass brick and a 1 x 1 glass brick.',
+      'The body-color brick is the gap between the small rear door and the big one.');
+    B(1, 19, 9, 2, 1, glass); B(3, 19, 9, 1, 1, body); B(4, 19, 9, 2, 1, glass); B(6, 19, 9, 1, 1, glass);
+    step('Windows', 'Left windows, top row',
+      'Second row on the left. This time each window starts with the 1 x 1 glass brick and then the 1 x 2, so the joints do not line up with the row below.',
+      'Bricklayers call this overlapping. It stops walls from splitting.');
+    sideUpper(0);
+    step('Windows', 'Right windows, top row',
+      'Second row on the right, the same way: pillar, 1 x 1 glass, 1 x 2 glass, and repeat.');
+    sideUpper(7);
+    step('Windows', 'Rear windows, top row',
+      'Finish the back: a 1 x 2 glass brick, the body-color 1 x 1 brick, a 1 x 1 glass brick and a 1 x 2 glass brick.');
+    B(1, 19, 12, 2, 1, glass); B(3, 19, 12, 1, 1, body); B(4, 19, 12, 1, 1, glass); B(5, 19, 12, 2, 1, glass);
+
+    /* ---------- Stage 8: roof ---------- */
+    step('Roof', 'Roof panel, front half',
+      'Lay three 2 x 8 plates across the cabin, starting at the windshield. Each one reaches from the left wall to the right wall.');
+    Pl(0, 7, 15, 8, 2, roofC, 'roof');
+    Pl(0, 9, 15, 8, 2, roofC, 'roof');
+    Pl(0, 11, 15, 8, 2, roofC, 'roof');
+    step('Roof', 'Roof panel, back half',
+      'Add three more 2 x 8 plates, then the 1 x 8 plate at the very back.');
+    Pl(0, 13, 15, 8, 2, roofC, 'roof');
+    Pl(0, 15, 15, 8, 2, roofC, 'roof');
+    Pl(0, 17, 15, 8, 2, roofC, 'roof');
+    Pl(0, 19, 15, 8, 1, roofC, 'roof');
+
+    step('Roof', cfg.safari ? 'Safari windows' : 'Roof skin, front',
+      (cfg.lightbar
+        ? 'Put the black 1 x 8 plate along the front edge of the roof and stand four round lamps on it. '
+        : 'Lay the smooth 1 x 8 tile along the front edge of the roof. ')
+      + (cfg.safari
+        ? 'Behind it, set the two glass 2 x 2 tiles over the front seats with a roof-color 2 x 2 tile between them. Add a 1 x 4 tile along each outside edge.'
+        : 'Behind it, lay three 2 x 2 tiles side by side and a 1 x 4 tile along each outside edge.'),
+      cfg.safari ? 'Safari windows sit flush in the roof. On the real truck they tilt open or lift out.' : '');
+    if (cfg.lightbar) {
+      Pl(0, 7, 16, 8, 1, K, 'lightbar');
+      [1, 3, 4, 6].forEach((x) => X('4073', x, 7, 17, 0, 'trclear', 'lightbar'));
+    } else T(0, 7, 16, 8, 1, roofC);
+    T(1, 8, 16, 2, 2, cfg.safari ? glass : roofC, cfg.safari ? 'safari' : 'roof');
+    T(3, 8, 16, 2, 2, roofC);
+    T(5, 8, 16, 2, 2, cfg.safari ? glass : roofC, cfg.safari ? 'safari' : 'roof');
+    T(0, 8, 16, 1, 4, roofC);
+    T(7, 8, 16, 1, 4, roofC);
+
+    step('Roof', 'Roof skin and rails',
+      (cfg.rack
+        ? 'One stud in from each edge, lay a black 1 x 10 plate running to the back. These carry the rack. '
+        : 'One stud in from each edge, lay a black 1 x 6 tile and a black 1 x 4 tile in a line running to the back. ')
+      + 'Fill the middle with five 2 x 4 tiles. Along each outside edge put: a black 1 x 3 tile, a 1 x 1 tile, another black 1 x 3 tile and a 1 x 1 tile.',
+      'The black 1 x 3 tiles are the roof rails. They are tie-down bars shaped to look like extra windows.');
+    [1, 6].forEach((x) => { if (cfg.rack) Pl(x, 10, 16, 1, 10, K, 'strip'); else { T(x, 10, 16, 1, 6, K, 'strip'); T(x, 16, 16, 1, 4, K, 'strip'); } });
+    [10, 12, 14, 16, 18].forEach((y) => T(2, y, 16, 4, 2, roofC));
+    [0, 7].forEach((x) => { T(x, 12, 16, 1, 3, K, 'roofrail'); T(x, 15, 16, 1, 1, roofC); T(x, 16, 16, 1, 3, K, 'roofrail'); T(x, 19, 16, 1, 1, roofC); });
+
+    if (cfg.rack) {
+      step('Roof', 'Build the roof rack',
+        'Put four black 1 x 8 plates across the two black rails, three studs apart. Then lay a black 1 x 10 plate along each side, on top of the ends.',
+        'The rack is where the real truck carries tents, fuel and spare parts.');
+      [10, 13, 16, 19].forEach((y) => Pl(0, y, 17, 8, 1, K, 'rack'));
+      Pl(0, 10, 18, 1, 10, K, 'rack');
+      Pl(7, 10, 18, 1, 10, K, 'rack');
+    }
+    if (cfg.gear) {
+      step('Roof', 'Load the gear',
+        'Pack for the trip. The green 2 x 4 brick is a duffel bag: put it on the second crossbar and cap it with the 2 x 4 tile. The tan 2 x 2 brick is a crate: put it on the third crossbar with its tile lid. The two red bricks with black caps are fuel cans. Stand them beside the crate.');
+      const duffel = body === 'olive' ? 'dkgreen' : 'olive';
+      B(2, 12, 18, 4, 2, duffel, 'gear'); T(2, 12, 21, 4, 2, duffel, 'gear');
+      B(2, 16, 18, 2, 2, 'tan', 'gear'); T(2, 16, 21, 2, 2, 'dktan', 'gear');
+      B(5, 16, 18, 1, 1, 'red', 'gear'); X('4073', 5, 16, 21, 0, K, 'gear');
+      B(6, 16, 18, 1, 1, 'red', 'gear'); X('4073', 6, 16, 21, 0, K, 'gear');
+    }
+
+    /* ---------- Stage 9: finishing ---------- */
+    if (cfg.snorkel) {
+      step('Finishing', 'Raised air intake',
+        'On the right front fender, stack two black round bricks on the single stud and top them with a black 1 x 1 brick. The intake stands just in front of the windshield pillar.',
+        'It lets the engine breathe clean air above the dust.');
+      X('3062b', 7, 5, 8, 0, K, 'snorkel');
+      X('3062b', 7, 5, 11, 0, K, 'snorkel');
+      B(7, 5, 14, 1, 1, K, 'snorkel');
+    }
+
+    step('Finishing', 'Lamps and license plate',
+      'Headlamps go on the two body-color light bricks: first a black round plate, then a clear round tile on top of it. Push a clear round plate onto each black light brick beside them. At the back, push a red round tile onto each top stud and an orange one onto each bottom stud. Last, press the white 1 x 2 tile onto the bracket at the front.',
+      'Four round lamps across the front and round lamps at the back are the signature of this truck.');
+    const ringL = side('4073', K, hlL, -1, 'headlight');
+    side('98138', 'trclear', ringL, -1, 'headlight');
+    const ringR = side('4073', K, hlR, -1, 'headlight');
+    side('98138', 'trclear', ringR, -1, 'headlight');
+    side('4073', 'trclear', auxL, -1, 'auxlamp');
+    side('4073', 'trclear', auxR, -1, 'auxlamp');
+    side('98138', 'trred', tlLU, 1, 'taillight');
+    side('98138', 'trred', tlRU, 1, 'taillight');
+    side('98138', 'trorange', tlLL, 1, 'taillight');
+    side('98138', 'trorange', tlRL, 1, 'taillight');
+    side('3069b', 'white', bracket, -1, 'plate', { face: -0.2, cx: 4, cz: 1.75, wx: 2, hz: 2.5, pre: Math.PI / 2 });
+
+    const axz = -0.25;
+    step('Finishing', 'Wheels',
+      'Stretch a tire over each of the four wheels. Push one wheel onto each pin until it stops, then give it a spin.',
+      'If a wheel rubs, pull it out a hair.');
+    wheel(axF, [1.0, 4, axz], 'x', -1, 'wheel');
+    wheel(axF, [7.0, 4, axz], 'x', 1, 'wheel');
+    wheel(axR, [1.0, 16, axz], 'x', -1, 'wheel');
+    wheel(axR, [7.0, 16, axz], 'x', 1, 'wheel');
+
+    if (cfg.spare) {
+      step('Finishing', 'Spare wheel',
+        'Put the last tire on the last wheel and push it onto the pin on the back door.');
+      wheel(pinBrick, [5.0, 21.0, 6.8], 'y', 1, 'spare');
+    }
+
+    step('Finishing', 'Stickers',
+      'Your truck is built. Open the Stickers tab, type your own license plate and expedition name, print the sheet and stick them on. The picture shows where each one goes.',
+      'Clean the brick with a dry cloth first. Line up one edge, then roll the sticker down.');
+
+    /* ---------- derived data ---------- */
+    const groundZ = axz - Rp;
+    const mm = (studs) => studs * BW.STUD_MM;
+    const front = -0.6, rear = cfg.spare ? 21.875 : 20;
+    const scale = REAL.width / mm(8);
+    const dims = {
+      scale,
+      lengthMM: mm(rear - front), bodyMM: mm(20), widthMM: mm(8), heightMM: (17 - groundZ) * BW.PLATE_MM,
+      wheelbaseMM: mm(12), tyreMM: Rmm * 2, groundZ,
+    };
+
+    // sticker positions on the finished model. pos is the sticker center, in model units
+    const decals = [
+      { id: 'plate', pos: [4, -0.6, 1.75], face: '-y' },
+      { id: 'plate', pos: [2.0, 20, 6.5], face: '+y' },
+      { id: 'name', pos: [0, 9, 3.5], face: '-x' }, { id: 'name', pos: [8, 9, 3.5], face: '+x' },
+      { id: 'roundel', pos: [0, 13, 3.5], face: '-x' }, { id: 'roundel', pos: [8, 13, 3.5], face: '+x' },
+      { id: 'screen', pos: [4, 7.5, 6.12], face: 'tilt', angle: 0.6 },
+      { id: 'switches', pos: [4, 8.5, 6], face: '+z' },
+    ];
+
+    // what the model takes from the real truck, and where to look
+    const details = [
+      { id: 'face', name: 'Four round lamps', real: 'Headlamps in black bezels at the corners, auxiliary high-beam lamps inboard, a slatted grille between them.', brick: 'Clear round tiles on black rings, clear round plates on black bricks, two grille bricks.', tags: ['headlight', 'auxlamp', 'grille'], view: { az: -0.38, el: 0.16, dist: 30, tz: -9, ty: 1.8 } },
+      { id: 'hood', name: 'Raised hood with vents', real: 'A raised center section with a rounded front edge and two black vents near the windshield.', brick: 'Four curved slopes, tiles one plate above the fenders, two black grille tiles.', tags: ['hood', 'vent'], view: { az: -0.5, el: 0.74, dist: 30, tz: -7, ty: 3.2 } },
+      { id: 'belt', name: 'Utility belt', real: 'Black strips on each door a third of the way down, and a rail under the rear side window.', brick: 'Black plates set into the body side, broken at the door edges. Orange plates are the side markers.', tags: ['belt', 'marker'], view: { az: -1.42, el: 0.1, dist: 44, ty: 2.2 } },
+      { id: 'roof', name: 'Safari windows and roof rails', real: 'Two glass panels over the front seats, and tie-down bars along the roof edge that look like extra windows.', brick: 'Tinted 2 x 2 tiles flush in the roof skin, black 1 x 3 tiles on the edges.', tags: ['safari', 'roofrail'], view: { az: -0.6, el: 0.98, dist: 38, tz: -1, ty: 5.6 } },
+      { id: 'rear', name: 'Split rear doors', real: 'Doors split 30/70. The big door carries the full-size spare. Two round lamps stacked at each corner.', brick: 'A 1 x 3 brick for the small door, a pin brick for the spare, red and orange round tiles.', tags: ['rear-door', 'taillight', 'spare'], view: { az: 2.72, el: 0.2, dist: 34, tz: 9, ty: 2.4 } },
+      { id: 'under', name: 'Flares, skid plates, sills', real: 'Black arch flares, black sills, and metal skid plates under the nose and tail.', brick: 'Black 4 x 4 plates over each wheel, a black floor edge, gray plates under each end.', tags: ['flare', 'skid', 'sill'], view: { az: -1.12, el: -0.05, dist: 42, ty: 1.2 } },
+      { id: 'cabin', name: 'Cabin controls', real: 'A wide touchscreen on top of the dashboard, a panel of switches below it, and two levers on the console.', brick: 'A small slope, a tile and two lever pieces. Screen and switch stickers finish them.', tags: ['screen', 'switches', 'lever', 'steering'], view: { az: 2.6, el: 0.95, dist: 26, tz: -1.6, ty: 2.8 }, cut: 14.5 },
+    ];
+    if (cfg.checker) details.splice(2, 0, { id: 'checker', name: 'Checker plates', real: 'Black tread plates on top of both front fenders.', brick: 'Grille tiles laid crosswise.', tags: ['checker'], view: { az: -0.7, el: 0.84, dist: 28, tz: -7, ty: 3.2 } });
+    if (cfg.snorkel) details.splice(details.length - 2, 0, { id: 'snorkel', name: 'Raised air intake', real: 'A black intake that runs from the right fender up the windshield pillar.', brick: 'Two round bricks and a square cap.', tags: ['snorkel'], view: { az: 0.78, el: 0.34, dist: 30, tx: 2, tz: -5, ty: 4.6 } });
+
+    return { id: 'grenadier', cfg, parts, steps, dims, decals, details, real: REAL, bounds: { x: [0, 8], y: [front, rear], z: [groundZ, cfg.gear ? 22 : cfg.rack ? 19 : 17] } };
+  }
+
+  BW.models = BW.models || {};
+  BW.models.grenadier = {
+    id: 'grenadier',
+    title: 'Grenadier Station Wagon',
+    subtitle: 'Fan-designed brick model at 1:30',
+    build, DEFAULTS, OPTIONS, PAINTS, REAL,
+    stages: ['Chassis', 'Front end', 'Cabin', 'Hood', 'Rear body', 'Body sides', 'Windows', 'Roof', 'Finishing'],
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = BW;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ---- validate.js ---- */
+/* Structural checks for a brick model: collisions, stud connectivity and build order. */
+(function (root) {
+  const BW = root.BW || (typeof require !== 'undefined' ? require('./catalog.js') : {});
+  const EPS = 1e-6;
+
+  function boxOf(p) { return p.mode === 'up' ? [p.x, p.y, p.z, p.x + p.w, p.y + p.l, p.z + p.h] : p.box; }
+  function overlap(a, b) {
+    return a[0] < b[3] - EPS && b[0] < a[3] - EPS && a[1] < b[4] - EPS && b[1] < a[4] - EPS && a[2] < b[5] - EPS && b[2] < a[5] - EPS;
+  }
+  function studCells(p) {
+    const def = BW.PARTS[p.pid], cells = [];
+    if (p.mode !== 'up' || def.studs === 'none') return cells;
+    for (let i = 0; i < p.w; i++) for (let j = 0; j < p.l; j++) {
+      if (def.studs === 'row1') {
+        // studs only on the far row in local coordinates
+        const far = p.yaw === 0 ? j === p.l - 1 : p.yaw === 180 ? j === 0 : p.yaw === 90 ? i === 0 : i === p.w - 1;
+        if (!far) continue;
+      }
+      cells.push((p.x + i) + ',' + (p.y + j));
+    }
+    return cells;
+  }
+  function footCells(p) {
+    const s = new Set();
+    for (let i = 0; i < p.w; i++) for (let j = 0; j < p.l; j++) s.add((p.x + i) + ',' + (p.y + j));
+    return s;
+  }
+
+  BW.validate = function (model) {
+    const parts = model.parts, errors = [], n = parts.length;
+    const boxes = parts.map(boxOf);
+
+    // 1. collisions
+    for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) {
+      if (parts[a].inside === b || parts[b].inside === a) continue;
+      if (overlap(boxes[a], boxes[b])) errors.push('collision: #' + a + ' ' + parts[a].pid + ' with #' + b + ' ' + parts[b].pid + ' at ' + JSON.stringify(boxes[a]) + ' / ' + JSON.stringify(boxes[b]));
+    }
+    // integer grid for upright parts
+    parts.forEach((p) => {
+      if (p.mode === 'up' && ![p.x, p.y, p.z, p.w, p.l, p.h].every(Number.isInteger)) errors.push('off-grid: #' + p.i + ' ' + p.pid);
+    });
+
+    // 2. connections
+    const adj = parts.map(() => []);
+    const link = (a, b) => { adj[a].push(b); adj[b].push(a); };
+    const ups = parts.filter((p) => p.mode === 'up');
+    const byBottom = {};
+    ups.forEach((p) => { (byBottom[p.z] = byBottom[p.z] || []).push(p); });
+    ups.forEach((a) => {
+      const studs = studCells(a);
+      if (!studs.length) return;
+      (byBottom[a.z + a.h] || []).forEach((b) => {
+        const f = footCells(b);
+        if (studs.some((c) => f.has(c))) link(a.i, b.i);
+      });
+    });
+    parts.forEach((p) => { if (p.mode !== 'up') { if (p.host == null) errors.push('no host: #' + p.i); else link(p.i, p.host); } });
+
+    // 3. build order: after every step the model is one piece, and every new part can be pressed straight down
+    const maxStep = model.steps.length;
+    for (let s = 1; s <= maxStep; s++) {
+      const placed = parts.filter((p) => p.step <= s);
+      if (!placed.length) continue;
+      if (s >= 2) {
+        const seen = new Set([placed[0].i]), q = [placed[0].i];
+        while (q.length) { const c = q.pop(); adj[c].forEach((d) => { if (parts[d].step <= s && !seen.has(d)) { seen.add(d); q.push(d); } }); }
+        placed.forEach((p) => { if (!seen.has(p.i)) errors.push('step ' + s + ': #' + p.i + ' ' + p.pid + ' at ' + [p.x, p.y, p.z] + ' is not attached to the model'); });
+      }
+      parts.filter((p) => p.step === s && p.mode === 'up').forEach((p) => {
+        const col = [p.x, p.y, p.z + p.h, p.x + p.w, p.y + p.l, 1e6];
+        parts.forEach((q) => { if (q.step < s && overlap(col, boxes[q.i])) errors.push('step ' + s + ': #' + p.i + ' ' + p.pid + ' at ' + [p.x, p.y, p.z] + ' is blocked from above by #' + q.i + ' ' + q.pid); });
+      });
+    }
+
+    // stats
+    const lots = {};
+    parts.forEach((p) => { const k = p.pid + '|' + p.color; lots[k] = (lots[k] || 0) + 1; });
+    return { ok: errors.length === 0, errors, pieces: n, lots: Object.keys(lots).length, steps: maxStep };
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = BW;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ---- geom.js ---- */
+/* Part geometry. Units: 1 = one stud (8 mm) on every axis, so a plate is 0.4 high. Y is up.
+   Every upright part is built centered on its footprint with its underside at y = 0, front face toward -Z. */
+(function (root) {
+  const BW = root.BW;
+  const T = root.THREE;
+  const PH = 0.4, G = 0.012, SR = 0.3, SH = 0.2;
+
+  function merge(list) {
+    let total = 0;
+    const flat = list.map((g) => { const n = g.index ? g.toNonIndexed() : g; total += n.attributes.position.count; return n; });
+    const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3);
+    let o = 0;
+    flat.forEach((g) => { pos.set(g.attributes.position.array, o); nor.set(g.attributes.normal.array, o); o += g.attributes.position.count * 3; });
+    const out = new T.BufferGeometry();
+    out.setAttribute('position', new T.BufferAttribute(pos, 3));
+    out.setAttribute('normal', new T.BufferAttribute(nor, 3));
+    return out;
+  }
+  const at = (g, x, y, z) => { g.translate(x, y, z); return g; };
+  function slab(w, h, l) { return at(new T.BoxGeometry(w - 2 * G, h, l - 2 * G), 0, h / 2, 0); }
+  function stud(x, z, y) { return at(new T.CylinderGeometry(SR, SR, SH, 18), x, y + SH / 2, z); }
+  function studsOn(w, l, y, filter) {
+    const out = [];
+    for (let i = 0; i < w; i++) for (let j = 0; j < l; j++) if (!filter || filter(i, j)) out.push(stud(i - w / 2 + 0.5, j - l / 2 + 0.5, y));
+    return out;
+  }
+  function cylZ(r, len, x, y, z) { const g = new T.CylinderGeometry(r, r, len, 18); g.rotateX(Math.PI / 2); return at(g, x, y, z); }
+  function cylX(r, len, x, y, z) { const g = new T.CylinderGeometry(r, r, len, 18); g.rotateZ(Math.PI / 2); return at(g, x, y, z); }
+  // extrude a (z, y) profile across x from -w/2 to w/2
+  function prism(profile, w) {
+    const s = new T.Shape();
+    profile.forEach((p, i) => (i ? s.lineTo(-p[0], p[1]) : s.moveTo(-p[0], p[1])));
+    const g = new T.ExtrudeGeometry(s, { depth: w - 2 * G, bevelEnabled: false });
+    g.rotateY(Math.PI / 2); // shape x (= -z) becomes world z
+    g.translate(-(w - 2 * G) / 2, 0, 0);
+    g.computeVertexNormals();
+    return g;
+  }
+
+  const builders = {
+    brick: (d) => merge([slab(d[0], d[2] * PH, d[1])].concat(studsOn(d[0], d[1], d[2] * PH))),
+    plate: (d) => builders.brick(d),
+    tile: (d) => {
+      const h = d[2] * PH;
+      return merge([at(new T.BoxGeometry(d[0] - 2 * G, h - 0.05, d[1] - 2 * G), 0, 0.05 + (h - 0.05) / 2, 0), at(new T.BoxGeometry(d[0] - 0.1, 0.05, d[1] - 0.1), 0, 0.025, 0)]);
+    },
+    roundtile: () => at(new T.CylinderGeometry(0.5 - G, 0.5 - G, PH, 28), 0, PH / 2, 0),
+    roundplate: () => merge([at(new T.CylinderGeometry(0.5 - G, 0.42, PH, 28), 0, PH / 2, 0), stud(0, 0, PH)]),
+    roundbrick: () => merge([at(new T.CylinderGeometry(0.5 - G, 0.5 - G, 3 * PH - 0.12, 28), 0, 0.12 + (3 * PH - 0.12) / 2, 0), at(new T.CylinderGeometry(0.4, 0.4, 0.12, 28), 0, 0.06, 0), stud(0, 0, 3 * PH)]),
+    sidestud: () => merge([slab(1, 3 * PH, 1), stud(0, 0, 3 * PH), cylZ(SR, SH, 0, 1.5 * PH, -0.5 - SH / 2 + G)]),
+    grille: () => {
+      const list = [at(new T.BoxGeometry(2 - 2 * G, 3 * PH, 0.86), 0, 1.5 * PH, 0)].concat(studsOn(2, 1, 3 * PH));
+      for (let i = 0; i < 5; i++) {
+        const y = 0.14 + i * 0.23;
+        list.push(at(new T.BoxGeometry(2 - 2 * G, 0.11, 0.07), 0, y, -0.5 + 0.035 + G));
+        list.push(at(new T.BoxGeometry(2 - 2 * G, 0.11, 0.07), 0, y, 0.5 - 0.035 - G));
+      }
+      [-1 + 0.06, 1 - 0.06].forEach((x) => list.push(at(new T.BoxGeometry(0.12 - 2 * G, 3 * PH, 1 - 2 * G), x, 1.5 * PH, 0)));
+      return merge(list);
+    },
+    pinbrick: () => merge([slab(2, 3 * PH, 1)].concat(studsOn(2, 1, 3 * PH), [cylZ(0.3, 1.0, 0, 0.72, 0.5 + 0.5), cylZ(0.38, 0.1, 0, 0.72, 0.5 + 0.05)])),
+    clip: () => merge([slab(1, PH, 1), stud(0, 0, PH),
+      at(new T.BoxGeometry(0.5, 0.36, 0.14), -0.72, 0.2, -0.3), at(new T.BoxGeometry(0.5, 0.36, 0.14), -0.72, 0.2, 0.3), at(new T.BoxGeometry(0.12, 0.36, 0.74), -0.53, 0.2, 0)]),
+    axle: () => merge([slab(4, PH, 2)].concat(studsOn(4, 2, PH), [
+      at(new T.BoxGeometry(0.7, 0.42, 1.2), -1.65, -0.19, 0), at(new T.BoxGeometry(0.7, 0.42, 1.2), 1.65, -0.19, 0),
+      cylX(0.3, 1.0, -2.5, -0.1, 0), cylX(0.3, 1.0, 2.5, -0.1, 0), cylX(0.42, 0.12, -2.06, -0.1, 0), cylX(0.42, 0.12, 2.06, -0.1, 0)])),
+    cheese: () => prism([[-0.5 + G, 0], [0.5 - G, 0], [0.5 - G, 2 * PH], [-0.5 + G, 0.12]], 1),
+    slope2: () => prism([[-0.5 + G, 0], [0.5 - G, 0], [0.5 - G, 2 * PH], [-0.5 + G, 0.12]], 2),
+    curved: () => prism([[-1 + G, 0], [1 - G, 0], [1 - G, 0.8], [0.45, 0.8], [0.05, 0.75], [-0.35, 0.62], [-0.7, 0.4], [-1 + G, 0.1]], 1),
+    grilletile: () => {
+      const list = [at(new T.BoxGeometry(1 - 2 * G, 0.26, 2 - 2 * G), 0, 0.13, 0)];
+      for (let i = 0; i < 5; i++) list.push(at(new T.BoxGeometry(0.82, 0.14, 0.2), 0, 0.33, -0.76 + i * 0.38));
+      list.push(at(new T.BoxGeometry(0.09, 0.14, 2 - 2 * G), -0.455, 0.33, 0), at(new T.BoxGeometry(0.09, 0.14, 2 - 2 * G), 0.455, 0.33, 0));
+      return merge(list);
+    },
+    bracket: () => merge([slab(2, PH, 1)].concat(studsOn(2, 1, PH), [
+      at(new T.BoxGeometry(2 - 2 * G, 1.0, 0.2), 0, -0.1, -0.6),
+      cylZ(SR, 0.14, -0.5, -0.1, -0.76), cylZ(SR, 0.14, 0.5, -0.1, -0.76)])),
+    lever: () => {
+      const stick = new T.CylinderGeometry(0.06, 0.06, 1.0, 8); stick.rotateX(0.35); stick.translate(0, 0.72, 0.16);
+      const knob = new T.SphereGeometry(0.13, 10, 8); knob.translate(0, 1.2, 0.34);
+      return merge([at(new T.CylinderGeometry(0.42, 0.46, 0.26, 20), 0, 0.13, 0), at(new T.SphereGeometry(0.2, 12, 8), 0, 0.3, 0), stick, knob]);
+    },
+    windscreen: () => merge([prism([[-1 + G, 0], [1 - G, 0], [1 - G, 6 * PH], [0, 6 * PH]], 6)].concat(studsOn(6, 2, 6 * PH, (i, j) => j === 1))),
+    seat: () => merge([slab(2, PH, 2), at(new T.BoxGeometry(1.7, 1.55, 0.32), 0, PH + 0.775, 0.8), at(new T.BoxGeometry(1.7, 0.22, 1.4), 0, PH + 0.11, -0.05),
+      at(new T.BoxGeometry(0.16, 0.6, 1.5), -0.9, PH + 0.3, 0.1), at(new T.BoxGeometry(0.16, 0.6, 1.5), 0.9, PH + 0.3, 0.1)]),
+    steering: () => {
+      const post = new T.CylinderGeometry(0.1, 0.1, 0.75, 10); post.rotateX(0.63); post.translate(0, 0.68, 0.08);
+      const rim = new T.TorusGeometry(0.5, 0.085, 10, 28); rim.rotateX(-0.6); rim.translate(0, 0.98, 0.3);
+      const hub = new T.CylinderGeometry(0.16, 0.16, 0.1, 12); hub.rotateX(Math.PI / 2); hub.rotateX(-0.6); hub.translate(0, 0.98, 0.3);
+      const spoke = new T.BoxGeometry(0.96, 0.07, 0.07); spoke.rotateX(-0.6); spoke.translate(0, 0.98, 0.3);
+      return merge([slab(2, PH, 1), post, rim, hub, spoke]);
+    },
+  };
+
+  // wheels are built around the X axis with their outer face toward -X; the viewer flips and turns them
+  function lathe(points) {
+    const g = new T.LatheGeometry(points.map((p) => new T.Vector2(p[0], p[1])), 40);
+    g.rotateZ(Math.PI / 2);
+    g.computeVertexNormals();
+    return g;
+  }
+  function tyreGeom(R) {
+    const r = 1.1, w = 0.875, b = 0.14;
+    const list = [lathe([[r, -w], [R - b, -w]]), lathe([[R - b, -w], [R, -w + b]]), lathe([[R, -w + b], [R, w - b]]), lathe([[R, w - b], [R - b, w]]), lathe([[R - b, w], [r, w]]), lathe([[r, w], [r, -w]])];
+    // offset tread blocks, two staggered rows
+    const n = Math.round(R * 11);
+    for (let i = 0; i < n; i++) for (let row = 0; row < 2; row++) {
+      const a = ((i + row * 0.5) / n) * Math.PI * 2;
+      const blk = new T.BoxGeometry(0.62, 0.09, (R * Math.PI * 2) / n * 0.56);
+      blk.translate((row ? 0.36 : -0.36), R + 0.03, 0);
+      blk.rotateX(a);
+      list.push(blk);
+    }
+    return merge(list);
+  }
+  function wheelGeom() {
+    const r = 1.07, w = 0.86;
+    // y is the axle direction before rotation: +y ends up at -X (the outer face)
+    const list = [lathe([[0.001, 0.34], [0.3, 0.34]]), lathe([[0.3, 0.34], [0.36, 0.46]]), lathe([[0.36, 0.46], [0.8, 0.52]]), lathe([[0.8, 0.52], [0.93, 0.84]]), lathe([[0.93, 0.84], [r, w]]), lathe([[r, w], [r, -w]]), lathe([[r, -w], [0.4, -w]])];
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      list.push(cylX(0.075, 0.08, -0.5, Math.cos(a) * 0.58, Math.sin(a) * 0.58));
+    }
+    return merge(list);
+  }
+
+  const cache = {};
+  BW.geom = {
+    merge,
+    forPart(pid, R) {
+      const def = BW.PARTS[pid];
+      const key = pid + (def.k === 'tyre' ? ':' + R : '');
+      if (cache[key]) return cache[key];
+      let g;
+      if (def.k === 'tyre') g = tyreGeom(R);
+      else if (def.k === 'wheel') g = wheelGeom();
+      else g = builders[def.k](def.d);
+      g.computeBoundingBox();
+      g.computeBoundingSphere();
+      const edges = new T.EdgesGeometry(g, 28);
+      return (cache[key] = { geom: g, edges });
+    },
+  };
+})(window);
+
+/* ---- viewer.js ---- */
+/* 3D viewer: scene, materials, orbit control, build-step display, decals, snapshots and part thumbnails. */
+(function (root) {
+  const BW = root.BW;
+  const T = root.THREE;
+  const PH = 0.4;
+  const CY = 10; // model y that sits at the scene origin
+
+  function makeEnv(renderer) {
+    const pm = new T.PMREMGenerator(renderer);
+    const s = new T.Scene();
+    const room = new T.Mesh(new T.BoxGeometry(60, 40, 60), new T.MeshBasicMaterial({ color: 0xcfd4da, side: T.BackSide }));
+    s.add(room);
+    const panel = (w, h, x, y, z, rx, ry, c) => {
+      const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ color: c, side: T.DoubleSide }));
+      m.position.set(x, y, z); m.rotation.set(rx, ry, 0); s.add(m);
+    };
+    panel(44, 44, 0, 19.5, 0, Math.PI / 2, 0, 0xffffff);
+    panel(30, 14, -29, 6, 0, 0, Math.PI / 2, 0xffffff);
+    panel(30, 10, 29, 4, 6, 0, -Math.PI / 2, 0xf1f3f5);
+    panel(60, 60, 0, -19.5, 0, -Math.PI / 2, 0, 0x9aa0a8);
+    const tex = pm.fromScene(s, 0.03).texture;
+    pm.dispose();
+    return tex;
+  }
+
+  const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+
+  function materialSet() {
+    const cache = {};
+    return function get(colorKey, variant, pid) {
+      const isTyre = pid && BW.PARTS[pid].k === 'tyre';
+      const key = (isTyre ? 'tyre' : colorKey) + '|' + variant + (pid === '55981' ? '|w' : '');
+      if (cache[key]) return cache[key];
+      const def = BW.COLORS[colorKey];
+      const col = new T.Color(isTyre ? '#161719' : def.hex);
+      if (variant === 'dim') col.lerp(new T.Color('#ffffff'), def.trans ? 0.2 : 0.42);
+      col.convertSRGBToLinear();
+      let m;
+      if (def.trans && !isTyre) {
+        m = new T.MeshStandardMaterial({ color: col, roughness: 0.06, metalness: 0, transparent: true, opacity: colorKey === 'trclear' ? 0.32 : colorKey === 'trbrown' ? 0.62 : /trred|trorange|tryellow/.test(colorKey) ? 0.82 : 0.5, envMapIntensity: 1.3, depthWrite: false });
+      } else {
+        m = new T.MeshStandardMaterial({ color: col, roughness: isTyre ? 0.93 : 0.4, metalness: 0, envMapIntensity: isTyre ? 0.15 : 0.55, side: pid && /wheel|tyre/.test(BW.PARTS[pid].k) ? T.DoubleSide : T.FrontSide });
+      }
+      const dark = lum(col) < 0.035;
+      const lc = dark ? new T.Color('#4d5259').convertSRGBToLinear() : col.clone().multiplyScalar(def.trans ? 0.35 : 0.42);
+      const line = new T.LineBasicMaterial({ color: lc, transparent: true, opacity: def.trans && !isTyre ? 0.55 : 0.9 });
+      return (cache[key] = { mesh: m, line });
+    };
+  }
+
+  function placePart(obj, p) {
+    if (p.mode === 'up') {
+      obj.position.set(p.x + p.w / 2 - 4, p.z * PH, p.y + p.l / 2 - CY);
+      obj.rotation.set(0, (-p.yaw * Math.PI) / 180, 0);
+    } else if (p.mode === 'snot') {
+      const yFace = p.dir < 0 ? p.box[4] : p.box[1];
+      obj.position.set(p.c[0] - 4, p.c[2] * PH, yFace - CY);
+      obj.rotation.set(p.dir < 0 ? -Math.PI / 2 : Math.PI / 2, p.pre || 0, 0);
+    } else {
+      obj.position.set(p.c[0] - 4, p.c[2] * PH, p.c[1] - CY);
+      obj.rotation.set(0, p.axis === 'x' ? (p.dir > 0 ? Math.PI : 0) : Math.PI / 2, 0);
+    }
+  }
+
+  BW.createViewer = function (container, opts) {
+    opts = opts || {};
+    const renderer = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: !!opts.capture });
+    renderer.setPixelRatio(opts.pixelRatio || Math.min(root.devicePixelRatio || 1, 2));
+    renderer.outputEncoding = T.sRGBEncoding;
+    renderer.toneMapping = T.LinearToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = T.PCFSoftShadowMap;
+    renderer.setClearColor(0x000000, 0);
+    const canvas = renderer.domElement;
+    canvas.style.display = 'block';
+    canvas.style.touchAction = 'none';
+    container.appendChild(canvas);
+
+    const scene = new T.Scene();
+    scene.environment = makeEnv(renderer);
+    const camera = new T.PerspectiveCamera(26, 1, 1, 400);
+    scene.add(new T.HemisphereLight(0xffffff, 0xbfc5cc, 0.42));
+    const key = new T.DirectionalLight(0xffffff, 0.78);
+    key.position.set(-9, 34, -13);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 90 });
+    key.shadow.bias = -0.0004;
+    key.shadow.radius = 5;
+    scene.add(key);
+    const fill = new T.DirectionalLight(0xffffff, 0.22);
+    fill.position.set(18, 10, 16);
+    scene.add(fill);
+    const ground = new T.Mesh(new T.PlaneGeometry(400, 400), new T.ShadowMaterial({ opacity: 0.13 }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const group = new T.Group(), decalGroup = new T.Group();
+    scene.add(group); scene.add(decalGroup);
+    const mats = materialSet();
+    const hotLine = new T.LineBasicMaterial({ color: 0xff6a00 });
+    let model = null, items = [], explode = 0, shownStep = Infinity, hotStep = -1, cut = null;
+
+    // ---- orbit ----
+    const cam = { az: -0.72, el: 0.36, dist: 52, tx: 0, ty: 2.2, tz: 0 };
+    const goal = Object.assign({}, cam);
+    const home = { tx: 0, ty: 2.2, tz: 0 };
+    let autoRotate = false, dirty = true, lastInteract = 0;
+    const VIEWS = {
+      hero: { az: -0.72, el: 0.36 }, front: { az: 0, el: 0.12 }, side: { az: -Math.PI / 2, el: 0.1 }, rear: { az: Math.PI - 0.55, el: 0.3 },
+      top: { az: -0.001, el: 1.45 }, right: { az: 0.8, el: 0.34 },
+    };
+    function applyCamera() {
+      const ce = Math.cos(cam.el);
+      const d = cam.dist * Math.max(1, 1.42 / camera.aspect); // pull back on tall, narrow stages so the model still fits
+      camera.position.set(cam.tx + d * Math.sin(cam.az) * ce, cam.ty + d * Math.sin(cam.el), cam.tz - d * Math.cos(cam.az) * ce);
+      camera.lookAt(cam.tx, cam.ty, cam.tz);
+    }
+    function setView(v, instant) {
+      const t = typeof v === 'string' ? VIEWS[v] : v;
+      if (!t) return;
+      Object.assign(goal, home);
+      Object.keys(t).forEach((k) => { goal[k] = t[k]; });
+      // take the short way round
+      while (goal.az - cam.az > Math.PI) goal.az -= 2 * Math.PI;
+      while (goal.az - cam.az < -Math.PI) goal.az += 2 * Math.PI;
+      if (instant) Object.assign(cam, goal);
+      dirty = true;
+    }
+
+    const pointers = new Map();
+    let pinch0 = 0, moved = 0;
+    canvas.addEventListener('pointerdown', (e) => {
+      if (opts.static) return;
+      canvas.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      moved = 0; lastInteract = performance.now();
+      if (pointers.size === 2) { const p = [...pointers.values()]; pinch0 = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      const p = pointers.get(e.pointerId);
+      if (!p) { if (!opts.static && e.pointerType === 'mouse') pick(e); return; }
+      const dx = e.clientX - p.x, dy = e.clientY - p.y;
+      p.x = e.clientX; p.y = e.clientY;
+      moved += Math.abs(dx) + Math.abs(dy);
+      lastInteract = performance.now();
+      if (pointers.size === 1) {
+        goal.az += dx * 0.0062; goal.el = Math.max(-0.12, Math.min(1.5, goal.el + dy * 0.0055));
+      } else if (pointers.size === 2) {
+        const q = [...pointers.values()], d = Math.hypot(q[0].x - q[1].x, q[0].y - q[1].y);
+        if (pinch0) goal.dist = Math.max(16, Math.min(110, goal.dist * (pinch0 / d)));
+        pinch0 = d;
+      }
+      dirty = true;
+    });
+    const up = (e) => {
+      if (pointers.has(e.pointerId) && moved < 6) pick(e, true);
+      pointers.delete(e.pointerId);
+    };
+    canvas.addEventListener('pointerup', up);
+    canvas.addEventListener('pointercancel', (e) => pointers.delete(e.pointerId));
+    canvas.addEventListener('pointerleave', () => { if (onPick) onPick(null); });
+    canvas.addEventListener('wheel', (e) => {
+      if (opts.static) return;
+      e.preventDefault();
+      goal.dist = Math.max(16, Math.min(110, goal.dist * Math.exp(e.deltaY * 0.0011)));
+      lastInteract = performance.now(); dirty = true;
+    }, { passive: false });
+
+    // ---- picking ----
+    const ray = new T.Raycaster(), ndc = new T.Vector2();
+    let onPick = null;
+    function pick(e, tap) {
+      if (!onPick || !model) return;
+      const r = canvas.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      const hit = ray.intersectObjects(items.filter((it) => it.mesh.visible).map((it) => it.mesh), false)[0];
+      onPick(hit ? hit.object.userData.part : null, e.clientX, e.clientY, !!tap);
+    }
+
+    // ---- model ----
+    function clear() {
+      items.forEach((it) => group.remove(it.mesh));
+      items = [];
+    }
+    function setModel(m) {
+      clear();
+      model = m;
+      m.parts.forEach((p) => {
+        const g = BW.geom.forPart(p.pid, p.R);
+        const mt = mats(p.color, 'std', p.pid);
+        const mesh = new T.Mesh(g.geom, mt.mesh);
+        const trans = BW.COLORS[p.color].trans && BW.PARTS[p.pid].k !== 'tyre';
+        mesh.castShadow = !trans; mesh.receiveShadow = true;
+        if (trans) mesh.renderOrder = 2;
+        const lines = new T.LineSegments(g.edges, mt.line);
+        mesh.add(lines);
+        placePart(mesh, p);
+        mesh.userData.part = p;
+        group.add(mesh);
+        items.push({ p, mesh, lines, base: mesh.position.clone(), anim: null });
+      });
+      const b = m.bounds;
+      ground.position.y = b.z[0] * PH;
+      home.ty = ((b.z[0] + Math.min(b.z[1], 17)) / 2) * PH + 0.4;
+      home.tz = (b.y[0] + b.y[1]) / 2 - CY;
+      home.tx = 0;
+      Object.assign(goal, home); cam.tx = goal.tx; cam.ty = goal.ty; cam.tz = goal.tz;
+      applyState();
+      dirty = true;
+    }
+
+    function offsetFor(p) {
+      if (!explode) return [0, 0, 0];
+      if (p.mode === 'up') return [0, explode * Math.pow(Math.max(0, p.z), 1.15) * 0.42, 0];
+      if (p.mode === 'snot') return [0, explode * p.c[2] * 0.42 * 1.1, p.dir * explode * 2.2];
+      if (p.axis === 'x') return [(p.c[0] < 4 ? -1 : 1) * explode * 3.2, 0, 0];
+      return [0, explode * p.c[2] * 0.42, explode * 4.5];
+    }
+    function applyState() {
+      items.forEach((it) => {
+        const p = it.p, vis = p.step <= shownStep && !(cut != null && p.mode === 'up' && p.z >= cut);
+        it.mesh.visible = vis;
+        if (!vis) return;
+        const hot = p.step === hotStep;
+        const variant = hotStep >= 0 && !hot ? 'dim' : 'std';
+        const mt = mats(p.color, variant, p.pid);
+        it.mesh.material = mt.mesh;
+        it.lines.material = hot ? hotLine : mt.line;
+        if (!it.anim) {
+          const o = offsetFor(p);
+          it.mesh.position.set(it.base.x + o[0], it.base.y + o[1], it.base.z + o[2]);
+        }
+      });
+      dirty = true;
+    }
+    function dropIn(stepN) {
+      const now = performance.now();
+      let k = 0;
+      items.forEach((it) => {
+        if (it.p.step !== stepN) return;
+        const p = it.p;
+        const from = p.mode === 'up' ? [0, 5.5, 0] : p.mode === 'snot' ? [0, 0, p.dir * 3.5] : p.axis === 'x' ? [(p.c[0] < 4 ? -1 : 1) * 4, 0, 0] : [0, 0, 4.5];
+        it.anim = { t0: now + k * 55, dur: 520, from };
+        k++;
+        it.mesh.position.set(it.base.x + from[0], it.base.y + from[1], it.base.z + from[2]);
+        it.mesh.visible = false;
+      });
+      dirty = true;
+    }
+
+    // ---- decals ----
+    function setDecals(list) {
+      while (decalGroup.children.length) { const c = decalGroup.children.pop(); if (c.material.map) c.material.map.dispose(); c.material.dispose(); }
+      (list || []).forEach((d) => {
+        const tex = new T.CanvasTexture(d.canvas);
+        tex.encoding = T.sRGBEncoding; tex.anisotropy = 4;
+        const w = d.wMM / 8, h = d.hMM / 8;
+        const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshStandardMaterial({ map: tex, roughness: 0.35, transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+        const e = 0.014;
+        const X = d.pos[0] - 4, Y = d.pos[2] * PH, Z = d.pos[1] - CY;
+        if (d.face === '-y') { m.rotation.y = Math.PI; m.position.set(X, Y, Z - e); }
+        else if (d.face === '+y') { m.position.set(X, Y, Z + e); }
+        else if (d.face === '-x') { m.rotation.y = -Math.PI / 2; m.position.set(X - e, Y, Z); }
+        else if (d.face === '+x') { m.rotation.y = Math.PI / 2; m.position.set(X + e, Y, Z); }
+        else if (d.face === 'tilt') { m.rotation.x = -(Math.PI / 2 - (d.angle || 0.6)); m.position.set(X, Y + e, Z + e); }
+        else { m.rotation.x = -Math.PI / 2; m.position.set(X, Y + e, Z); }
+        m.userData.zExplode = d.pos[2];
+        decalGroup.add(m);
+      });
+      decalGroup.visible = explode === 0 && shownStep === Infinity;
+      dirty = true;
+    }
+
+    // ---- loop ----
+    function resize() {
+      const w = container.clientWidth || 2, h = container.clientHeight || 2;
+      renderer.setSize(w, h, false);
+      canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      dirty = true;
+    }
+    let raf = 0, alive = true;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    let lastT = 0;
+    function frame(now) {
+      if (!alive) return;
+      raf = requestAnimationFrame(frame);
+      const dt = Math.min(120, lastT ? now - lastT : 16); lastT = now;
+      const kEase = 1 - Math.exp(-dt / 110);
+      if (autoRotate && now - lastInteract > 2500 && !pointers.size) { goal.az += dt * 0.00014; dirty = true; }
+      let moving = false;
+      ['az', 'el', 'dist', 'tx', 'ty', 'tz'].forEach((k) => {
+        const d = goal[k] - cam[k];
+        if (Math.abs(d) > 1e-4) { cam[k] += d * kEase; moving = true; } else cam[k] = goal[k];
+      });
+      items.forEach((it) => {
+        if (!it.anim) return;
+        const t = (now - it.anim.t0) / it.anim.dur;
+        if (t < 0) { moving = true; return; }
+        it.mesh.visible = true;
+        const k = 1 - ease(Math.min(1, t));
+        it.mesh.position.set(it.base.x + it.anim.from[0] * k, it.base.y + it.anim.from[1] * k, it.base.z + it.anim.from[2] * k);
+        if (t >= 1) it.anim = null;
+        moving = true;
+      });
+      if (moving || dirty) { applyCamera(); renderer.render(scene, camera); dirty = moving; }
+    }
+    resize();
+    applyCamera();
+    raf = requestAnimationFrame(frame);
+    let ro = null;
+    if (root.ResizeObserver) { ro = new ResizeObserver(resize); ro.observe(container); }
+
+    return {
+      canvas, setModel, setView, resize, setDecals,
+      get model() { return model; },
+      setExplode(f) { explode = f; decalGroup.visible = f === 0 && shownStep === Infinity; applyState(); },
+      showAll() { shownStep = Infinity; hotStep = -1; items.forEach((it) => { it.anim = null; }); decalGroup.visible = explode === 0; applyState(); },
+      showStep(n, animate) {
+        shownStep = n; hotStep = n; decalGroup.visible = false;
+        items.forEach((it) => { it.anim = null; });
+        applyState();
+        if (animate) dropIn(n);
+      },
+      // camera that looks at the parts of one step from the side they sit on
+      focusStep(n, instant, dist) {
+        const ps = model.parts.filter((p) => p.step === n);
+        if (!ps.length) { setView({ az: -0.72, el: 0.36, dist: dist || 52 }, instant); return; }
+        let sx = 0, sy = 0, sz = 0, zmax = -99;
+        ps.forEach((p) => {
+          const b = p.mode === 'up' ? [p.x, p.y, p.z, p.x + p.w, p.y + p.l, p.z + p.h] : p.box;
+          sx += (b[0] + b[3]) / 2; sy += (b[1] + b[4]) / 2; sz += (b[2] + b[5]) / 2; zmax = Math.max(zmax, b[5]);
+        });
+        sx = sx / ps.length - 4; sy = sy / ps.length - CY; sz /= ps.length;
+        const side = sx > 1.2 ? 1 : -1;
+        const back = sy > 4.5;
+        const inside = Math.abs(sx) < 2.6 && zmax <= 9 && sz > 1.5;
+        const az = back ? side * (Math.PI - 0.68) : side * 0.74;
+        setView({ az, el: inside ? 0.86 : zmax >= 15 ? 0.6 : 0.4, dist: dist || 50, tx: sx * 0.25, tz: home.tz + sy * 0.18 }, instant);
+      },
+      setAutoRotate(b) { autoRotate = b; lastInteract = 0; dirty = true; },
+      // hide everything that starts at or above this height, to look inside. null shows it all
+      setCut(z) { cut = z; applyState(); },
+      // outline every part carrying one of the tags for a moment
+      flash(tags, ms) {
+        const hit = items.filter((it) => it.p.tag && tags.includes(it.p.tag));
+        hit.forEach((it) => { it.lines.material = hotLine; });
+        dirty = true;
+        setTimeout(() => { applyState(); }, ms || 2200);
+        return hit.length;
+      },
+      onPick(cb) { onPick = cb; },
+      snapshot(w, h, type, bg) {
+        const pr = renderer.getPixelRatio();
+        renderer.setPixelRatio(1);
+        if (bg != null) renderer.setClearColor(bg, 1);
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h; camera.updateProjectionMatrix();
+        Object.assign(cam, goal);
+        items.forEach((it) => { if (it.anim) { it.anim = null; it.mesh.visible = true; } });
+        applyState();
+        applyCamera();
+        renderer.render(scene, camera);
+        const url = canvas.toDataURL(type || 'image/png', 0.9);
+        renderer.setClearColor(0x000000, 0);
+        renderer.setPixelRatio(pr);
+        resize();
+        return url;
+      },
+      dispose() {
+        alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect();
+        clear(); renderer.dispose();
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      },
+    };
+  };
+
+  // ---- part thumbnails ----
+  let thumb = null;
+  const thumbCache = {};
+  BW.thumb = function (pid, colorKey, R) {
+    const key = pid + '|' + colorKey + '|' + (R || '');
+    if (thumbCache[key]) return thumbCache[key];
+    if (!thumb) {
+      const r = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      r.setPixelRatio(1); r.setSize(168, 168, false);
+      r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.LinearToneMapping; r.toneMappingExposure = 1.0;
+      r.setClearColor(0x000000, 0);
+      const s = new T.Scene();
+      s.environment = makeEnv(r);
+      s.add(new T.HemisphereLight(0xffffff, 0xbfc5cc, 0.42));
+      const d = new T.DirectionalLight(0xffffff, 0.78); d.position.set(-6, 10, -7); s.add(d);
+      thumb = { r, s, c: new T.PerspectiveCamera(22, 1, 0.1, 200), mats: materialSet(), holder: new T.Group() };
+      s.add(thumb.holder);
+    }
+    const t = thumb;
+    while (t.holder.children.length) t.holder.remove(t.holder.children[0]);
+    const g = BW.geom.forPart(pid, R);
+    const mt = t.mats(colorKey, 'std', pid);
+    const mesh = new T.Mesh(g.geom, mt.mesh);
+    mesh.add(new T.LineSegments(g.edges, mt.line));
+    const kind = BW.PARTS[pid].k;
+    if (kind === 'wheel' || kind === 'tyre') mesh.rotation.y = -0.5;
+    else if (kind === 'pinbrick') mesh.rotation.y = Math.PI;
+    else if (kind === 'steering') mesh.rotation.y = 2.5;
+    else if (kind === 'seat') mesh.rotation.y = 0.5;
+    t.holder.add(mesh);
+    const bs = g.geom.boundingSphere;
+    const dist = (bs.radius / Math.sin((11 * Math.PI) / 180)) * 1.02;
+    const ctr = bs.center.clone().applyEuler(mesh.rotation);
+    const dir = new T.Vector3(-0.62, 0.62, -0.78).normalize();
+    t.c.position.copy(ctr).addScaledVector(dir, dist);
+    t.c.lookAt(ctr);
+    t.r.render(t.s, t.c);
+    return (thumbCache[key] = t.r.domElement.toDataURL('image/png'));
+  };
+})(window);
+
+/* ---- stickers.js ---- */
+/* Sticker artwork. Every design is drawn by code so the same function feeds the print sheet and the 3D decals.
+   Sizes are in millimetres and match the brick face each sticker sits on. */
+(function (root) {
+  const BW = root.BW;
+  const FONT = "'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif";
+
+  function fitText(ctx, text, maxW, size, weight, stretch) {
+    let s = size;
+    do { ctx.font = (weight || 700) + ' ' + s + 'px ' + FONT; s -= 0.5; } while (ctx.measureText(text).width > maxW && s > 4);
+    return s;
+  }
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  const DEFS = [
+    {
+      id: 'plate', name: 'License plate', w: 14, h: 7, qty: 2, where: 'Front bumper middle brick, and the rear door brick left of the spare wheel',
+      draw(ctx, W, H, d) {
+        ctx.fillStyle = '#fbfbf7'; rr(ctx, 0, 0, W, H, H * 0.14); ctx.fill();
+        ctx.strokeStyle = '#15171a'; ctx.lineWidth = H * 0.07; rr(ctx, H * 0.06, H * 0.06, W - H * 0.12, H - H * 0.12, H * 0.1); ctx.stroke();
+        ctx.fillStyle = '#15171a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const t = (d.plate || 'GRN 4X4').toUpperCase().slice(0, 8);
+        fitText(ctx, t, W * 0.84, H * 0.66, 700);
+        ctx.fillText(t, W / 2, H * 0.54);
+      },
+    },
+    {
+      id: 'name', name: 'Expedition stripe', w: 44, h: 7, qty: 2, where: 'Front doors, on the long lower brick',
+      draw(ctx, W, H, d) {
+        ctx.fillStyle = '#15171a'; rr(ctx, 0, 0, W, H, H * 0.12); ctx.fill();
+        // ridge line
+        ctx.fillStyle = '#f2f2ee';
+        ctx.beginPath();
+        const bx = H * 0.35, by = H * 0.78, u = H * 0.5;
+        ctx.moveTo(bx, by); ctx.lineTo(bx + u * 0.7, by - u * 0.95); ctx.lineTo(bx + u * 1.15, by - u * 0.42); ctx.lineTo(bx + u * 1.55, by - u * 0.72); ctx.lineTo(bx + u * 2.15, by); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = d.accent || '#ff6a00'; ctx.fillRect(H * 1.75, H * 0.2, H * 0.09, H * 0.6);
+        ctx.fillStyle = '#f2f2ee'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        const t = (d.name || 'EXPEDITION').toUpperCase().slice(0, 22);
+        try { ctx.letterSpacing = (H * 0.06) + 'px'; } catch (e) {}
+        fitText(ctx, t, W - H * 2.55, H * 0.56, 600);
+        ctx.fillText(t, H * 2.1, H * 0.54);
+        try { ctx.letterSpacing = '0px'; } catch (e) {}
+      },
+    },
+    {
+      id: 'roundel', name: 'Door number', w: 8, h: 8, qty: 2, where: 'Rear doors, on the short lower brick',
+      draw(ctx, W, H, d) {
+        const r = W / 2;
+        ctx.fillStyle = '#fbfbf7'; ctx.beginPath(); ctx.arc(r, r, r * 0.98, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#15171a'; ctx.lineWidth = r * 0.14; ctx.beginPath(); ctx.arc(r, r, r * 0.84, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#15171a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const t = String(d.number || '01').slice(0, 3);
+        fitText(ctx, t, r * 1.2, r * 1.05, 700);
+        ctx.fillText(t, r, r * 1.06);
+      },
+    },
+    {
+      id: 'screen', name: 'Touchscreen', w: 13, h: 6, qty: 1, where: 'Cabin, on the small black slope at the top of the dashboard',
+      draw(ctx, W, H) {
+        ctx.fillStyle = '#0d0f12'; rr(ctx, 0, 0, W, H, H * 0.12); ctx.fill();
+        ctx.fillStyle = '#1c2530'; rr(ctx, H * 0.1, H * 0.1, W - H * 0.2, H * 0.8, H * 0.07); ctx.fill();
+        ctx.fillStyle = '#e9eef2'; ctx.fillRect(H * 0.22, H * 0.2, W * 0.3, H * 0.09);
+        ctx.fillStyle = '#7f8b96'; for (let i = 0; i < 4; i++) ctx.fillRect(H * 0.22, H * (0.38 + i * 0.11), W * (0.16 + (i % 2) * 0.08), H * 0.05);
+        ctx.strokeStyle = '#ff6a00'; ctx.lineWidth = H * 0.06; ctx.strokeRect(W * 0.42, H * 0.36, W * 0.12, H * 0.34);
+        ctx.fillStyle = '#2a8f5b'; ctx.fillRect(W * 0.6, H * 0.2, W * 0.32, H * 0.5);
+        ctx.strokeStyle = '#d7f0e2'; ctx.lineWidth = H * 0.04; ctx.beginPath(); ctx.moveTo(W * 0.62, H * 0.6); ctx.lineTo(W * 0.7, H * 0.42); ctx.lineTo(W * 0.78, H * 0.52); ctx.lineTo(W * 0.9, H * 0.28); ctx.stroke();
+      },
+    },
+    {
+      id: 'switches', name: 'Switch panel', w: 14, h: 6, qty: 1, where: 'Cabin, on the gray tile between the seats',
+      draw(ctx, W, H) {
+        ctx.fillStyle = '#3a3d42'; rr(ctx, 0, 0, W, H, H * 0.1); ctx.fill();
+        ctx.fillStyle = '#16181b'; rr(ctx, H * 0.1, H * 0.1, W - H * 0.2, H * 0.8, H * 0.06); ctx.fill();
+        for (let i = 0; i < 4; i++) { const cx = W * (0.14 + i * 0.105); ctx.fillStyle = '#c9ced3'; ctx.beginPath(); ctx.arc(cx, H * 0.34, H * 0.11, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#16181b'; ctx.fillRect(cx - H * 0.015, H * 0.24, H * 0.03, H * 0.1); }
+        for (let i = 0; i < 5; i++) { ctx.fillStyle = i === 2 ? '#c91a09' : '#e9e9e4'; rr(ctx, W * (0.56 + i * 0.08), H * 0.22, W * 0.055, H * 0.22, H * 0.03); ctx.fill(); }
+        for (let i = 0; i < 9; i++) { ctx.fillStyle = i % 3 === 0 ? '#ff6a00' : '#8d949b'; rr(ctx, W * (0.1 + i * 0.09), H * 0.6, W * 0.06, H * 0.16, H * 0.03); ctx.fill(); }
+      },
+    },
+    {
+      id: 'plaque', name: 'Display plaque', w: 64, h: 26, qty: 1, where: 'Card stock, folded behind the model on the shelf', spares: 0,
+      draw(ctx, W, H, d) {
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = '#15171a'; ctx.lineWidth = H * 0.018; ctx.strokeRect(H * 0.05, H * 0.05, W - H * 0.1, H - H * 0.1);
+        ctx.fillStyle = '#15171a'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        fitText(ctx, d.title || 'GRENADIER STATION WAGON', W * 0.86, H * 0.2, 700);
+        ctx.fillText(d.title || 'GRENADIER STATION WAGON', H * 0.16, H * 0.34);
+        ctx.fillStyle = d.accent || '#ff6a00'; ctx.fillRect(H * 0.16, H * 0.42, W * 0.12, H * 0.03);
+        ctx.fillStyle = '#15171a';
+        ctx.font = '400 ' + H * 0.105 + 'px ' + FONT;
+        ctx.fillText(d.line1 || 'Brick model, scale 1:30', H * 0.16, H * 0.6);
+        ctx.fillText(d.line2 || '', H * 0.16, H * 0.74);
+        ctx.font = '600 ' + H * 0.105 + 'px ' + FONT;
+        ctx.fillText('Built by ' + (d.builder || '________________'), H * 0.16, H * 0.89);
+      },
+    },
+  ];
+
+  BW.stickers = {
+    defs: DEFS,
+    byId: (id) => DEFS.find((d) => d.id === id),
+    canvas(id, pxPerMM, data) {
+      const def = BW.stickers.byId(id);
+      const c = document.createElement('canvas');
+      c.width = Math.round(def.w * pxPerMM); c.height = Math.round(def.h * pxPerMM);
+      const ctx = c.getContext('2d');
+      def.draw(ctx, c.width, c.height, data || {});
+      return c;
+    },
+  };
+})(window);
+
+/* ---- mosaic.js ---- */
+/* Photo Lab: turns any picture into a stud mosaic with a parts list and a section-by-section plan. */
+(function (root) {
+  const BW = root.BW;
+
+  // solid colors in which 1 x 1 plates and tiles are commonly sold. bl = BrickLink color id
+  const PALETTE = [
+    { key: 'white', bl: 1, name: 'White', hex: '#F2F3F2' }, { key: 'lbg', bl: 86, name: 'Light Bluish Gray', hex: '#A0A5A9' },
+    { key: 'dbg', bl: 85, name: 'Dark Bluish Gray', hex: '#6C6E68' }, { key: 'black', bl: 11, name: 'Black', hex: '#1B1D21' },
+    { key: 'tan', bl: 2, name: 'Tan', hex: '#E4CD9E' }, { key: 'dktan', bl: 69, name: 'Dark Tan', hex: '#958A73' },
+    { key: 'mednougat', bl: 150, name: 'Medium Nougat', hex: '#AA7D55' }, { key: 'rbrown', bl: 88, name: 'Reddish Brown', hex: '#582A12' },
+    { key: 'red', bl: 5, name: 'Red', hex: '#C91A09' }, { key: 'dkred', bl: 59, name: 'Dark Red', hex: '#720E0F' },
+    { key: 'orange', bl: 4, name: 'Orange', hex: '#FE8A18' }, { key: 'dkorange', bl: 68, name: 'Dark Orange', hex: '#A95500' },
+    { key: 'brltorange', bl: 110, name: 'Bright Light Orange', hex: '#F8BB3D' }, { key: 'yellow', bl: 3, name: 'Yellow', hex: '#F2CD37' },
+    { key: 'lime', bl: 34, name: 'Lime', hex: '#BBE90B' }, { key: 'green', bl: 6, name: 'Green', hex: '#237841' },
+    { key: 'dkgreen', bl: 80, name: 'Dark Green', hex: '#184632' }, { key: 'olive', bl: 155, name: 'Olive Green', hex: '#9B9A5A' },
+    { key: 'sandgreen', bl: 48, name: 'Sand Green', hex: '#A0BCAC' }, { key: 'medazure', bl: 156, name: 'Medium Azure', hex: '#36AEBF' },
+    { key: 'medblue', bl: 42, name: 'Medium Blue', hex: '#5A93DB' }, { key: 'blue', bl: 7, name: 'Blue', hex: '#0055BF' },
+    { key: 'dkblue', bl: 63, name: 'Dark Blue', hex: '#0A3463' }, { key: 'sandblue', bl: 55, name: 'Sand Blue', hex: '#6074A1' },
+  ];
+  const SETS = {
+    full: PALETTE.map((p) => p.key),
+    classic: ['white', 'lbg', 'dbg', 'black', 'red', 'yellow', 'blue', 'green', 'tan', 'orange'],
+    mono: ['white', 'lbg', 'dbg', 'black'],
+  };
+  const ELEMENTS = {
+    roundplate: { pid: '4073', name: 'Plate, Round 1 x 1', round: true, stud: true },
+    roundtile: { pid: '98138', name: 'Tile, Round 1 x 1', round: true },
+    plate: { pid: '3024', name: 'Plate 1 x 1', stud: true },
+    tile: { pid: '3070b', name: 'Tile 1 x 1 with Groove' },
+  };
+
+  function hexRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+  function lab(r, g, b) {
+    const f = (v) => { v /= 255; return v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92; };
+    const R = f(r), G = f(g), B = f(b);
+    const g3 = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+    const X = g3((R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047), Y = g3(R * 0.2126 + G * 0.7152 + B * 0.0722), Z = g3((R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883);
+    return [116 * Y - 16, 500 * (X - Y), 200 * (Y - Z)];
+  }
+
+  // centre-crop the source to the mosaic aspect, apply the adjustments, return W x H pixels
+  function sample(src, W, H, adj) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
+    const ar = W / H; let cw = sw, ch = sw / ar;
+    if (ch > sh) { ch = sh; cw = sh * ar; }
+    ctx.imageSmoothingQuality = 'high';
+    ctx.filter = 'brightness(' + (adj.brightness || 100) + '%) contrast(' + (adj.contrast || 100) + '%) saturate(' + (adj.saturation || 100) + '%)';
+    ctx.drawImage(src, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, W, H);
+    return ctx.getImageData(0, 0, W, H);
+  }
+
+  function quantize(img, W, H, keys, dither) {
+    const pal = keys.map((k) => PALETTE.find((p) => p.key === k));
+    const rgb = pal.map((p) => hexRgb(p.hex)), labs = rgb.map((c) => lab(c[0], c[1], c[2]));
+    const buf = new Float32Array(img.data.length);
+    for (let i = 0; i < buf.length; i++) buf[i] = img.data[i];
+    const idx = new Uint8Array(W * H), counts = new Array(pal.length).fill(0);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 4;
+      const r = Math.max(0, Math.min(255, buf[o])), g = Math.max(0, Math.min(255, buf[o + 1])), b = Math.max(0, Math.min(255, buf[o + 2]));
+      const L = lab(r, g, b);
+      let best = 0, bd = 1e9;
+      for (let k = 0; k < labs.length; k++) { const d = (L[0] - labs[k][0]) ** 2 + (L[1] - labs[k][1]) ** 2 + (L[2] - labs[k][2]) ** 2; if (d < bd) { bd = d; best = k; } }
+      idx[y * W + x] = best; counts[best]++;
+      if (dither) {
+        const er = r - rgb[best][0], eg = g - rgb[best][1], eb = b - rgb[best][2];
+        const push = (dx, dy, f) => { const xx = x + dx, yy = y + dy; if (xx < 0 || xx >= W || yy >= H) return; const q = (yy * W + xx) * 4; buf[q] += er * f; buf[q + 1] += eg * f; buf[q + 2] += eb * f; };
+        push(1, 0, 7 / 16); push(-1, 1, 3 / 16); push(0, 1, 5 / 16); push(1, 1, 1 / 16);
+      }
+    }
+    return { idx, counts, pal, W, H };
+  }
+
+  function draw(canvas, q, opts) {
+    const cell = opts.cell, el = ELEMENTS[opts.element], W = q.W, H = q.H;
+    canvas.width = W * cell; canvas.height = H * cell;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = opts.base === 'white' ? '#e9e9e6' : '#17181b';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = q.pal[q.idx[y * W + x]], cx = x * cell + cell / 2, cy = y * cell + cell / 2;
+      ctx.fillStyle = p.hex;
+      if (el.round) { ctx.beginPath(); ctx.arc(cx, cy, cell * 0.47, 0, Math.PI * 2); ctx.fill(); } else ctx.fillRect(x * cell + cell * 0.03, y * cell + cell * 0.03, cell * 0.94, cell * 0.94);
+      if (cell >= 8) {
+        if (el.stud) {
+          ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = Math.max(1, cell * 0.05);
+          ctx.beginPath(); ctx.arc(cx, cy, cell * 0.28, 0, Math.PI * 2); ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+          ctx.beginPath(); ctx.arc(cx, cy, cell * 0.28, Math.PI * 1.05, Math.PI * 1.6); ctx.stroke();
+        } else {
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = Math.max(1, cell * 0.05);
+          ctx.beginPath(); ctx.arc(cx, cy, cell * 0.36, Math.PI * 1.05, Math.PI * 1.55); ctx.stroke();
+        }
+      }
+    }
+    if (opts.grid) {
+      ctx.strokeStyle = 'rgba(255,106,0,0.9)'; ctx.lineWidth = Math.max(1, cell * 0.08);
+      for (let x = 16; x < W; x += 16) { ctx.beginPath(); ctx.moveTo(x * cell, 0); ctx.lineTo(x * cell, H * cell); ctx.stroke(); }
+      for (let y = 16; y < H; y += 16) { ctx.beginPath(); ctx.moveTo(0, y * cell); ctx.lineTo(W * cell, y * cell); ctx.stroke(); }
+    }
+  }
+
+  // numbered plan for one 16 x 16 section
+  function drawSection(canvas, q, sx, sy, cell, row) {
+    canvas.width = 16 * cell; canvas.height = 16 * cell;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 ' + Math.round(cell * 0.42) + 'px Arial, sans-serif';
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const gx = sx * 16 + x, gy = sy * 16 + y;
+      if (gx >= q.W || gy >= q.H) continue;
+      const k = q.idx[gy * q.W + gx], p = q.pal[k], c = hexRgb(p.hex);
+      const dimmed = row != null && y !== row;
+      ctx.globalAlpha = dimmed ? 0.28 : 1;
+      ctx.fillStyle = p.hex; ctx.beginPath(); ctx.arc(x * cell + cell / 2, y * cell + cell / 2, cell * 0.46, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11 > 140 ? '#111' : '#fff';
+      ctx.fillText(String(k + 1), x * cell + cell / 2, y * cell + cell / 2 + 1);
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#d5d6d2'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 16; i++) { ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, 16 * cell); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(16 * cell, i * cell); ctx.stroke(); }
+  }
+
+  // demo picture drawn in code so the lab opens with something to convert
+  function demoImage() {
+    const c = document.createElement('canvas'); c.width = 480; c.height = 480;
+    const x = c.getContext('2d');
+    const sky = x.createLinearGradient(0, 0, 0, 300); sky.addColorStop(0, '#0a3463'); sky.addColorStop(0.55, '#5a93db'); sky.addColorStop(1, '#f8bb3d');
+    x.fillStyle = sky; x.fillRect(0, 0, 480, 480);
+    x.fillStyle = '#fe8a18'; x.beginPath(); x.arc(330, 250, 46, 0, 7); x.fill();
+    x.fillStyle = '#f2cd37'; x.beginPath(); x.arc(330, 250, 30, 0, 7); x.fill();
+    const ridge = (pts, col) => { x.fillStyle = col; x.beginPath(); x.moveTo(0, 480); pts.forEach((p) => x.lineTo(p[0], p[1])); x.lineTo(480, 480); x.closePath(); x.fill(); };
+    ridge([[0, 290], [70, 210], [120, 250], [190, 150], [250, 235], [300, 200], [370, 280], [430, 240], [480, 290]], '#6074a1');
+    x.fillStyle = '#f2f3f2'; x.beginPath(); [[190, 150], [160, 192], [176, 186], [190, 204], [204, 184], [224, 198]].forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]))); x.closePath(); x.fill();
+    ridge([[0, 330], [60, 290], [140, 320], [220, 270], [300, 320], [380, 290], [480, 340]], '#184632');
+    ridge([[0, 380], [90, 345], [200, 372], [320, 340], [480, 385]], '#237841');
+    x.fillStyle = '#184632';
+    [[60, 372], [110, 362], [150, 380], [400, 366], [440, 380]].forEach((p) => { x.beginPath(); x.moveTo(p[0], p[1] - 46); x.lineTo(p[0] - 16, p[1]); x.lineTo(p[0] + 16, p[1]); x.closePath(); x.fill(); });
+    x.fillStyle = '#36aebf'; x.fillRect(0, 410, 480, 70);
+    x.fillStyle = '#5a93db'; for (let i = 0; i < 9; i++) x.fillRect(20 + i * 52, 424 + (i % 3) * 14, 34, 4);
+    return c;
+  }
+
+  BW.mosaic = { PALETTE, SETS, ELEMENTS, sample, quantize, draw, drawSection, demoImage };
+})(window);
+
+/* ---- app.js ---- */
+/* Brickwright app: views, configuration, parts, build guide, stickers, photo lab and exports. */
+(function () {
+  const BW = window.BW, M = BW.models.grenadier;
+  const $ = (s, el) => (el || document).querySelector(s);
+  const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (n, d) => Number(n).toLocaleString('en-US', { maximumFractionDigits: d || 0, minimumFractionDigits: d || 0 });
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('bw:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('bw:' + k, JSON.stringify(v)); } catch (e) { /* storage is optional */ } },
+  };
+  const VIEWS = ['design', 'parts', 'build', 'stickers', 'photo-lab'];
+  const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+  function cleanCfg(c) {
+    const out = Object.assign({}, M.DEFAULTS);
+    if (!c || typeof c !== 'object') return out;
+    if (M.PAINTS.some((p) => p.key === c.paint)) out.paint = c.paint;
+    ['roof', 'glass', 'wheels', 'tyres', 'drive', 'seats'].forEach((k) => { if (M.OPTIONS[k].some((o) => o[0] === c[k])) out[k] = c[k]; });
+    M.OPTIONS.toggles.forEach((t) => { if (typeof c[t[0]] === 'boolean') out[t[0]] = c[t[0]]; });
+    if (!out.rack) out.gear = false;
+    return out;
+  }
+
+  const state = {
+    view: 'design',
+    cfg: cleanCfg(store.get('cfg', null)),
+    have: store.get('have', {}),
+    step: store.get('step', 1),
+    stick: Object.assign({ plate: 'GRN 4X4', name: 'EXPEDITION', number: '01', builder: '' }, store.get('stick', {})),
+    filter: 'All', paper: store.get('paper', 'letter'), spin: !reduced, explode: 0, lift: false, detail: null,
+  };
+  let model = null, viewer = null, lots = [];
+  const cap = { ready: null, downloads: null, sample: null, images: false, native: false };
+
+  /* ---------- small UI helpers ---------- */
+  let toastT = 0;
+  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3200); }
+  function modal(html) {
+    const m = $('#modal');
+    m.innerHTML = '<div class="sheet-modal" role="dialog" aria-modal="true">' + html + '</div>';
+    m.hidden = false;
+    m.onclick = (e) => { if (e.target === m || e.target.closest('[data-close]')) closeModal(); };
+    return m.firstElementChild;
+  }
+  function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; }
+  async function copyText(text, what) {
+    try { await navigator.clipboard.writeText(text); toast(what + ' copied'); }
+    catch (e) {
+      const box = modal('<h2>Copy ' + esc(what) + '</h2><p>Select all of the text below and copy it.</p><textarea readonly></textarea><div class="row"><button class="btn primary" data-close>Done</button></div>');
+      const ta = $('textarea', box); ta.value = text; ta.focus(); ta.select();
+    }
+  }
+  async function saveFile(filename, data) {
+    await cap.ready;
+    if (cap.downloads) {
+      try { await cap.downloads.save({ filename, data }); toast('Saved ' + filename); return true; }
+      catch (e) { if (!e || e.code !== 'declined') toast('That file could not be saved here.'); return false; }
+    }
+    if (cap.native) {
+      const blob = data instanceof Blob ? data : new Blob([data]);
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      return true;
+    }
+    toast('Saving files is not available in this view. Use Copy instead.');
+    return false;
+  }
+  function dataUrlBlob(url) { const [h, b] = url.split(','); const bin = atob(b), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new Blob([u8], { type: h.match(/:(.*?);/)[1] }); }
+
+  /* ---------- model ---------- */
+  function computeLots() {
+    const map = new Map();
+    model.parts.forEach((p) => {
+      const k = p.pid + '|' + p.color;
+      let l = map.get(k);
+      if (!l) { l = { key: k, pid: p.pid, color: p.color, qty: 0, def: BW.PARTS[p.pid], col: BW.COLORS[p.color], R: p.mode === 'tyre' ? p.R : undefined }; map.set(k, l); }
+      l.qty++;
+    });
+    const order = ['Bricks', 'Plates', 'Tiles', 'Slopes', 'Round', 'Special bricks', 'Special plates', 'Glass', 'Lights', 'Interior', 'Wheels'];
+    return [...map.values()].sort((a, b) => order.indexOf(a.def.cat) - order.indexOf(b.def.cat) || a.def.n.localeCompare(b.def.n, 'en', { numeric: true }) || a.col.name.localeCompare(b.col.name));
+  }
+  const haveOf = (l) => Math.min(l.qty, Math.max(0, state.have[l.key] | 0));
+  function stickerData() { return { plate: state.stick.plate, name: state.stick.name, number: state.stick.number, builder: state.stick.builder, accent: '#ff6a00', title: 'GRENADIER STATION WAGON', line1: 'Brick model, scale 1:' + fmt(model.dims.scale, 0), line2: model.parts.length + ' pieces, ' + model.steps.length + ' steps' }; }
+  function applyDecals() {
+    const d = stickerData();
+    viewer.setDecals(model.decals.map((x) => { const def = BW.stickers.byId(x.id); return { canvas: BW.stickers.canvas(x.id, 24, d), pos: x.pos, face: x.face, wMM: def.w, hMM: def.h }; }));
+  }
+  function rebuild() {
+    model = M.build(state.cfg);
+    lots = computeLots();
+    state.step = Math.min(Math.max(1, state.step | 0), model.steps.length);
+    viewer.setModel(model);
+    document.documentElement.style.setProperty('--paint', BW.COLORS[state.cfg.paint].hex);
+    applyDecals();
+    $('#topMeta').innerHTML = '<span class="dot"></span><b>Grenadier Station Wagon</b> ' + model.parts.length + ' pieces';
+  }
+  function overallMM() { return { L: model.dims.lengthMM, W: model.dims.widthMM, H: (model.bounds.z[1] - model.dims.groundZ) * BW.PLATE_MM }; }
+
+  /* ---------- routing ---------- */
+  function setView(v) {
+    if (!VIEWS.includes(v)) v = 'design';
+    state.view = v;
+    $('#main').dataset.view = v;
+    $$('.tabs a').forEach((a) => a.classList.toggle('on', a.dataset.view === v));
+    const wide = v === 'parts' || v === 'photo-lab';
+    $('#wide').hidden = !wide;
+    $('#tip').hidden = true;
+    if (v !== 'design') { $('#stageUI').classList.remove('focus'); state.detail = null; }
+    viewer.setCut(v === 'design' && state.lift ? 14.5 : null);
+    if (v === 'design') { viewer.showAll(); viewer.setExplode(state.explode); viewer.setAutoRotate(state.spin); viewer.setView({ az: -0.72, el: 0.36, dist: 52 }); renderDesign(); }
+    else if (v === 'parts') renderParts();
+    else if (v === 'build') { viewer.setAutoRotate(false); viewer.setExplode(0); renderBuild(true); }
+    else if (v === 'stickers') { viewer.showAll(); viewer.setExplode(0); viewer.setAutoRotate(false); viewer.setView({ az: -0.95, el: 0.3, dist: 44 }); renderStickers(); }
+    else renderPhoto();
+    if (!wide) requestAnimationFrame(() => viewer.resize());
+  }
+  function route() { setView((location.hash || '#design').slice(1)); }
+
+  /* ================= DESIGN ================= */
+  function seg(key, cur) {
+    return '<div class="seg" role="group">' + M.OPTIONS[key].map((o) => '<button data-seg="' + key + '" data-val="' + o[0] + '" class="' + (o[0] === cur ? 'on' : '') + '" aria-pressed="' + (o[0] === cur) + '">' + esc(o[1]) + '</button>').join('') + '</div>';
+  }
+  function accuracyRows() {
+    const d = model.dims, r = model.real, s = d.scale;
+    const rows = [
+      ['Width', r.width, d.widthMM], ['Wheelbase', r.wheelbase, d.wheelbaseMM], ['Body length', r.body, d.bodyMM],
+      ['Height', r.height, d.heightMM], ['Tire diameter', r.tyre, d.tyreMM],
+    ];
+    if (state.cfg.spare) rows.splice(3, 0, ['Length with spare', r.length, d.lengthMM]);
+    return rows.map((x) => {
+      const target = x[1] / s, diff = (x[2] / target - 1) * 100;
+      return '<tr><td>' + x[0] + '</td><td>' + fmt(x[1]) + '</td><td>' + fmt(target, 1) + '</td><td>' + fmt(x[2], 1) + '</td><td class="d' + (Math.abs(diff) > 5 ? ' off' : '') + '">' + (diff >= 0 ? '+' : '') + fmt(diff, 1) + '%</td></tr>';
+    }).join('');
+  }
+  function shareCode() { return 'BW1.' + btoa(JSON.stringify(state.cfg)).replace(/=+$/, ''); }
+  function renderDesign() {
+    const c = state.cfg, col = BW.COLORS[c.paint], paint = M.PAINTS.find((p) => p.key === c.paint), o = overallMM();
+    $('#stageUI').classList.toggle('focus', !!state.detail);
+    $('#stageUI').innerHTML =
+      '<div class="plate"><p class="eyebrow">Fan-designed brick model, scale 1:' + fmt(model.dims.scale, 0) + '</p><h1>Grenadier</h1><p class="sub">Station Wagon</p>' +
+      '<div class="specs"><div><b>' + model.parts.length + '</b>pieces</div><div><b>' + fmt(o.L) + ' × ' + fmt(o.W) + ' × ' + fmt(o.H) + '</b>mm long, wide, tall</div><div><b>' + model.steps.length + '</b>build steps</div><div><b>10+</b>builder age</div></div></div>' +
+      '<p class="fine">Independent fan design. Not made, licensed or endorsed by the LEGO Group or INEOS Automotive. LEGO is a trademark of the LEGO Group.</p>' +
+      '<button class="btn small back" id="home">Show the whole truck</button>' +
+      '<div class="dock"><div class="chips" id="views">' + [['hero', 'Three-quarter'], ['front', 'Front'], ['side', 'Side'], ['rear', 'Rear'], ['top', 'Top']].map((v) => '<button data-v="' + v[0] + '">' + v[1] + '</button>').join('') + '</div>' +
+      '<label class="slide" for="explode">Explode<input type="range" id="explode" min="0" max="1" step="0.01" value="' + state.explode + '"></label>' +
+      '<div class="chips push"><button id="lift" class="' + (state.lift ? 'on' : '') + '" aria-pressed="' + state.lift + '">Lift the roof</button><button id="spin" class="' + (state.spin ? 'on' : '') + '" aria-pressed="' + state.spin + '">Turntable</button></div></div>';
+
+    const panel = $('#panel'), top = panel.scrollTop;
+    const tierNote = paint.tier === 'check' ? 'Less common color. Confirm every lot shows sellers before you order.' : 'Common color for these parts.';
+    panel.innerHTML =
+      '<div class="p-head"><p class="eyebrow">Step 1 of 4</p><h2>Choose your spec</h2><p class="lede">Every change rebuilds the model, the parts list and the instructions.</p>' +
+      '<p class="note m-only"><b>' + model.parts.length + ' pieces, ' + model.steps.length + ' steps.</b> ' + fmt(o.L) + ' × ' + fmt(o.W) + ' × ' + fmt(o.H) + ' mm. Built for ages 10 and up.</p></div>' +
+      '<section class="grp"><h3>Paint</h3><div class="swatches">' + M.PAINTS.map((p) => '<button class="sw' + (p.key === c.paint ? ' on' : '') + '" style="--c:' + BW.COLORS[p.key].hex + '" data-paint="' + p.key + '" title="' + esc(BW.COLORS[p.key].name) + '" aria-label="' + esc(BW.COLORS[p.key].name) + '" aria-pressed="' + (p.key === c.paint) + '"></button>').join('') + '</div>' +
+      '<p class="note"><b>' + esc(col.name) + '.</b> ' + (paint.like ? 'Closest LEGO color to ' + esc(paint.like) + ' on the real truck. ' : '') + tierNote + '</p></section>' +
+      '<section class="grp two"><div><h3>Roof</h3>' + seg('roof', c.roof) + '</div><div><h3>Glass</h3>' + seg('glass', c.glass) + '</div>' +
+      '<div><h3>Wheels</h3>' + seg('wheels', c.wheels) + '</div><div><h3>Seats</h3>' + seg('seats', c.seats) + '</div></section>' +
+      '<section class="grp"><h3>Tires</h3>' + seg('tyres', c.tyres) + '<h3 style="margin-top:16px">Steering</h3>' + seg('drive', c.drive) + '</section>' +
+      '<section class="grp"><h3>Accessories</h3>' + M.OPTIONS.toggles.map((t) => '<button class="tg" data-tg="' + t[0] + '" aria-pressed="' + !!c[t[0]] + '"' + (t[0] === 'gear' && !c.rack ? ' disabled' : '') + '><span>' + esc(t[1]) + '<small>' + esc(t[2]) + '</small></span><i></i></button>').join('') + '</section>' +
+      '<section class="grp"><h3>Matched to the real truck</h3><ul class="details">' + model.details.map((d) => '<li><button data-detail="' + d.id + '" class="' + (state.detail === d.id ? 'on' : '') + '"><b>' + esc(d.name) + '</b><span>' + esc(d.real) + '</span><em>' + esc(d.brick) + '</em></button></li>').join('') + '</ul>' +
+      '<p class="note">Drawn from reference photos of the truck: front, side and cabin. Press a line to see it on the model.</p></section>' +
+      '<section class="grp"><h3>True to the original</h3><table class="acc"><thead><tr><th>mm</th><th>Real</th><th>At scale</th><th>Model</th><th>Off by</th></tr></thead><tbody>' + accuracyRows() + '</tbody></table>' +
+      '<p class="note">Scale is set by width: 8 studs for 1,930 mm. LEGO tires are 14 mm wide and come in two sizes that fit this wheel, so the tires and the spare run large.</p></section>' +
+      '<section class="grp"><h3>Share this spec</h3><div class="row"><input class="code" id="code" value="' + shareCode() + '" aria-label="Spec code" spellcheck="false"><button class="btn small" id="copyCode">Copy</button><button class="btn small" id="loadCode">Load</button></div>' +
+      '<p class="note">Send the code to another builder. They paste it here and press Load.</p></section>' +
+      '<div class="cta"><a class="btn" href="#build">Start building</a><a class="btn primary" href="#parts">Get the parts</a></div>';
+    panel.scrollTop = top;
+  }
+  function onDesignClick(e) {
+    const t = e.target.closest('button'); if (!t) return;
+    const c = state.cfg;
+    if (t.dataset.paint) c.paint = t.dataset.paint;
+    else if (t.dataset.seg) c[t.dataset.seg] = t.dataset.val;
+    else if (t.dataset.tg) { const k = t.dataset.tg; c[k] = !c[k]; if (k === 'rack' && !c.rack) c.gear = false; }
+    else if (t.dataset.detail) { showDetail(t.dataset.detail); return; }
+    else if (t.id === 'copyCode') { copyText($('#code').value, 'Spec code'); return; }
+    else if (t.id === 'loadCode') {
+      try { state.cfg = cleanCfg(JSON.parse(atob($('#code').value.trim().replace(/^BW1\./, '')))); toast('Spec loaded'); }
+      catch (err) { toast('That code could not be read. Check that all of it was pasted.'); return; }
+    } else return;
+    store.set('cfg', state.cfg);
+    rebuild();
+    viewer.setExplode(state.explode);
+    viewer.setCut(state.lift ? 14.5 : null);
+    renderDesign();
+  }
+  function setLift(on) {
+    state.lift = on; viewer.setCut(on ? 14.5 : null);
+    const b = $('#lift'); if (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }
+  }
+  function stopSpin() { state.spin = false; viewer.setAutoRotate(false); const s = $('#spin'); if (s) { s.classList.remove('on'); s.setAttribute('aria-pressed', 'false'); } }
+  function showDetail(id) {
+    const d = model.details.find((x) => x.id === id); if (!d) return;
+    state.detail = id; stopSpin();
+    state.explode = 0; viewer.setExplode(0); const ex = $('#explode'); if (ex) ex.value = 0;
+    setLift(!!d.cut);
+    $('#stageUI').classList.add('focus');
+    viewer.setView(d.view);
+    viewer.flash(d.tags, 2600);
+    $$('ul.details button').forEach((b) => b.classList.toggle('on', b.dataset.detail === id));
+    if (window.matchMedia('(max-width: 940px)').matches) $('#stage').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  }
+  function onStageClick(e) {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.v) { $('#stageUI').classList.remove('focus'); state.detail = null; $$('ul.details button').forEach((b) => b.classList.remove('on')); viewer.setView(Object.assign({ dist: state.view === 'stickers' ? 44 : 52 }, t.dataset.v === 'hero' ? { az: -0.72, el: 0.36 } : { front: { az: 0, el: 0.12 }, side: { az: -Math.PI / 2, el: 0.1 }, rear: { az: Math.PI - 0.55, el: 0.3 }, top: { az: -0.001, el: 1.45 } }[t.dataset.v])); stopSpin(); }
+    else if (t.id === 'lift') setLift(!state.lift);
+    else if (t.id === 'home') { $('#stageUI').classList.remove('focus'); state.detail = null; setLift(false); $$('ul.details button').forEach((b) => b.classList.remove('on')); viewer.setView({ az: -0.72, el: 0.36, dist: 52 }); }
+    else if (t.id === 'spin') { state.spin = !state.spin; viewer.setAutoRotate(state.spin); t.classList.toggle('on', state.spin); t.setAttribute('aria-pressed', state.spin); }
+    else if (t.dataset.stage != null) { const st = model.steps.find((s) => s.stage === t.dataset.stage); if (st) goStep(st.n); }
+    else if (t.id === 'replay') { viewer.showStep(state.step, !reduced); }
+  }
+
+  /* ================= PARTS ================= */
+  function toBuy() { return lots.map((l) => ({ l, qty: l.qty - haveOf(l) })).filter((x) => x.qty > 0); }
+  function bricklinkXML(items) {
+    return '<INVENTORY>\n' + items.map((i) => '<ITEM><ITEMTYPE>P</ITEMTYPE><ITEMID>' + i.pid + '</ITEMID><COLOR>' + i.bl + '</COLOR><MINQTY>' + i.qty + '</MINQTY><NOTIFY>N</NOTIFY></ITEM>').join('\n') + '\n</INVENTORY>\n';
+  }
+  function csv(rows) { return rows.map((r) => r.map((v) => (/[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v)).join(',')).join('\n') + '\n'; }
+  function modelXML() { return bricklinkXML(toBuy().map((x) => ({ pid: x.l.pid, bl: x.l.col.bl, qty: x.qty }))); }
+  function modelCSV() { return csv([['Quantity', 'BrickLink part', 'Part name', 'Color', 'BrickLink color id', 'Already have']].concat(lots.map((l) => [l.qty, l.pid, l.def.n, l.col.name, l.col.bl, haveOf(l)]))); }
+  function fillThumbs(root) {
+    const imgs = $$('img[data-thumb]', root);
+    let i = 0;
+    (function next() {
+      const end = Math.min(i + 5, imgs.length);
+      for (; i < end; i++) { const im = imgs[i]; const [pid, color, R] = im.dataset.thumb.split('|'); im.src = BW.thumb(pid, color, R ? +R : undefined); im.removeAttribute('data-thumb'); }
+      if (i < imgs.length) setTimeout(next, 0);
+    })();
+  }
+  function renderParts() {
+    const wide = $('#wide'), top = wide.scrollTop;
+    const cats = ['All'].concat([...new Set(lots.map((l) => l.def.cat))], ['Still needed']);
+    if (!cats.includes(state.filter)) state.filter = 'All';
+    const shown = lots.filter((l) => state.filter === 'All' || (state.filter === 'Still needed' ? haveOf(l) < l.qty : l.def.cat === state.filter));
+    const buy = toBuy(), buyPieces = buy.reduce((a, x) => a + x.qty, 0), total = model.parts.length;
+    const paint = M.PAINTS.find((p) => p.key === state.cfg.paint);
+    wide.innerHTML = '<div class="two-col"><div class="col">' +
+      '<div class="h-row"><div><p class="eyebrow">Step 2 of 4</p><h2>Parts list</h2></div></div>' +
+      '<p class="lede">' + total + ' pieces in ' + lots.length + ' lots for the spec you chose. Tick off what is already in your collection and the order shrinks to match.</p>' +
+      '<div class="filters">' + cats.map((c) => '<button data-filter="' + esc(c) + '" class="' + (c === state.filter ? 'on' : '') + '">' + esc(c) + '</button>').join('') + '</div>' +
+      '<div class="lots">' + shown.map((l) => {
+        const hv = haveOf(l);
+        return '<div class="lot' + (hv >= l.qty ? ' done' : '') + '" data-key="' + esc(l.key) + '"><img alt="" width="76" height="76" src="' + BLANK + '" data-thumb="' + l.pid + '|' + l.color + '|' + (l.R || '') + '">' +
+          '<div><div class="q">' + l.qty + '×</div><div class="n">' + esc(l.def.n) + '</div><div class="id"><i style="--c:' + l.col.hex + '"></i>' + esc(l.col.name) + ' · ' + l.pid + '</div></div>' +
+          '<div class="have">Have <button data-have="-1" aria-label="One fewer">−</button><b>' + hv + '</b><button data-have="1" aria-label="One more">+</button><button class="all" data-have="all">' + (hv >= l.qty ? 'Clear' : 'Have all') + '</button></div></div>';
+      }).join('') + '</div></div>' +
+      '<aside><p class="side-h">Your order</p><div class="sum"><div><b>' + buyPieces + '</b>pieces to buy</div><div><b>' + buy.length + '</b>lots</div><div><b>' + (total - buyPieces) + '</b>on hand</div></div>' +
+      '<div class="stack"><button class="btn primary" id="copyXml"' + (buy.length ? '' : ' disabled') + '>Copy BrickLink wanted list</button>' +
+      '<a class="btn" href="https://www.bricklink.com/v2/wanted/upload.page" target="_blank" rel="noopener">Open BrickLink upload page</a>' +
+      '<div class="row"><button class="btn small" id="saveXml">Save XML as .txt</button><button class="btn small" id="saveCsv">Save list as .csv</button></div></div>' +
+      '<p class="side-h">How to order</p><ol class="how"><li>Press Copy BrickLink wanted list.</li><li>On BrickLink choose Want, then Upload, then Upload BrickLink XML format. Paste, and add it to a new wanted list.</li><li>Open that list and choose Buy All. BrickLink finds the fewest stores that cover it.</li></ol>' +
+      '<p class="note">BrickOwl and Rebrickable accept the same XML.</p>' +
+      '<p class="side-h">Budget guide</p><p class="note"><b>$' + fmt(buyPieces * 0.1) + ' to $' + fmt(buyPieces * 0.2) + '</b> in parts at 10 to 20 cents a piece, before shipping. This is an estimate. BrickLink shows live prices once the list is uploaded.</p>' +
+      '<p class="side-h">Before you order</p><p class="note">Part numbers are BrickLink catalog numbers and the model passes a collision, connection and build-order check in every option combination.' + (paint.tier === 'check' ? ' <b>' + esc(BW.COLORS[state.cfg.paint].name) + ' is a less common color.</b> If a lot shows no sellers, pick a nearby color for that part or switch paint.' : ' If a lot shows no sellers in your region, any hidden black part can be swapped for dark gray.') + '</p>' +
+      '<div class="row" style="margin-top:22px"><a class="btn primary" href="#build">Start building</a></div></aside></div>';
+    wide.scrollTop = top;
+    fillThumbs(wide);
+  }
+  function onWideClick(e) {
+    if (state.view === 'photo-lab') return onPhotoClick(e);
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.filter) { state.filter = t.dataset.filter; renderParts(); }
+    else if (t.dataset.have) {
+      const key = t.closest('.lot').dataset.key, l = lots.find((x) => x.key === key), hv = haveOf(l);
+      state.have[key] = t.dataset.have === 'all' ? (hv >= l.qty ? 0 : l.qty) : Math.max(0, Math.min(l.qty, hv + +t.dataset.have));
+      store.set('have', state.have); renderParts();
+    }
+    else if (t.id === 'copyXml') copyText(modelXML(), 'Wanted list');
+    else if (t.id === 'saveXml') saveFile('grenadier-bricklink-wanted-list.txt', modelXML());
+    else if (t.id === 'saveCsv') saveFile('grenadier-parts.csv', modelCSV());
+  }
+
+  /* ================= BUILD ================= */
+  function stepLots(n) {
+    const map = new Map();
+    model.parts.filter((p) => p.step === n).forEach((p) => { const k = p.pid + '|' + p.color; const l = map.get(k) || { pid: p.pid, color: p.color, qty: 0, R: p.mode === 'tyre' ? p.R : undefined }; l.qty++; map.set(k, l); });
+    return [...map.values()];
+  }
+  function showCurrentStep(animate) {
+    const s = model.steps[state.step - 1];
+    if (s.parts.length) { viewer.showStep(state.step, animate && !reduced); viewer.focusStep(state.step); }
+    else { viewer.showAll(); viewer.setView({ az: -0.95, el: 0.3, dist: 46 }); }
+  }
+  function renderBuild(animate) {
+    const n = state.step, s = model.steps[n - 1], total = model.steps.length, need = stepLots(n);
+    const stages = M.stages.filter((st) => model.steps.some((x) => x.stage === st));
+    $('#stageUI').innerHTML = '<div class="rail">' + stages.map((st) => {
+      const ss = model.steps.filter((x) => x.stage === st), done = ss.filter((x) => x.n <= n).length;
+      return '<button data-stage="' + esc(st) + '" class="' + (st === s.stage ? 'on' : '') + '" style="--n:' + ss.length + ';--p:' + (done / ss.length) * 100 + '%" title="' + esc(st) + '"><span></span><em>' + esc(st) + '</em></button>';
+    }).join('') + '</div><div class="dock"><div class="chips"><button id="replay">Replay step</button></div></div>';
+    const panel = $('#panel');
+    panel.innerHTML =
+      '<div class="b-head"><p class="eyebrow">' + esc(s.stage) + ', stage ' + (stages.indexOf(s.stage) + 1) + ' of ' + stages.length + '</p>' +
+      '<div class="b-step"><div class="b-num">' + String(n).padStart(2, '0') + '</div><div class="b-of">of ' + total + '</div></div>' +
+      '<h2 class="b-title">' + esc(s.title) + '</h2><p class="b-text">' + esc(s.text) + '</p>' + (s.tip ? '<p class="b-tip">' + esc(s.tip) + '</p>' : '') + '</div>' +
+      (need.length ? '<div class="callout"><h3>You need ' + need.reduce((a, l) => a + l.qty, 0) + ' piece' + (need.reduce((a, l) => a + l.qty, 0) === 1 ? '' : 's') + '</h3><div class="need">' + need.map((l) => '<div><b>' + l.qty + '×</b><img alt="" width="64" height="64" src="' + BLANK + '" data-thumb="' + l.pid + '|' + l.color + '|' + (l.R || '') + '">' + esc(BW.PARTS[l.pid].n.replace(/^(Brick|Plate|Tile), Modified /, '$1 ').replace(/ with Groove| without Bottom Tube| Open Stud/, '')) + '<br>' + esc(BW.COLORS[l.color].name) + '</div>').join('') + '</div></div>' : '') +
+      '<div class="b-nav"><button class="btn" id="prev"' + (n === 1 ? ' disabled' : '') + '>Back</button><button class="btn primary" id="next">' + (n === total ? 'Finish' : 'Next step') + '</button></div>' +
+      '<div class="b-extra"><button class="btn small" id="booklet">Save instruction booklet (PDF)</button>' + (n === total ? '<a class="btn small" href="#stickers">Open stickers</a>' : '') + '</div>';
+    panel.scrollTop = 0;
+    fillThumbs(panel);
+    showCurrentStep(animate);
+  }
+  function goStep(n) {
+    const total = model.steps.length;
+    if (n > total) { celebrate(); return; }
+    state.step = Math.max(1, Math.min(total, n));
+    store.set('step', state.step);
+    renderBuild(true);
+  }
+
+  /* ---------- instruction booklet ---------- */
+  function offscreenViewer(w, h) {
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + w + 'px;height:' + h + 'px';
+    document.body.appendChild(host);
+    const v = BW.createViewer(host, { capture: true, static: true, pixelRatio: 1 });
+    v.setModel(model);
+    return { v, done() { v.dispose(); host.remove(); } };
+  }
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  async function makeBooklet() {
+    if (!window.jspdf) { toast('The PDF library did not load. Check the connection and reload.'); return; }
+    const box = modal('<h2>Building your booklet</h2><p id="bkMsg">Rendering the cover.</p><div class="bar"><i id="bkBar"></i></div>');
+    const bar = $('#bkBar', box), msg = $('#bkMsg', box);
+    await tick();
+    const off = offscreenViewer(1240, 1000);
+    try {
+      const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter', compress: true });
+      const PW = 279.4, PH = 215.9, mg = 12, total = model.steps.length, o = overallMM();
+      const BG = 0xf6f6f4;
+      // cover
+      off.v.showAll(); off.v.setView({ az: -0.72, el: 0.36, dist: 50 }, true);
+      doc.addImage(off.v.snapshot(1480, 1000, 'image/jpeg', BG), 'JPEG', 0, 30, PW, PW * (1000 / 1480));
+      doc.setFillColor(255, 255, 255); doc.rect(0, 0, PW, 46, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(34); doc.text('GRENADIER', mg, 24);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(15); doc.text('Station Wagon. Building instructions.', mg, 33);
+      doc.setFontSize(10); doc.setTextColor(90);
+      doc.text(model.parts.length + ' pieces   |   ' + total + ' steps   |   ' + fmt(o.L) + ' x ' + fmt(o.W) + ' x ' + fmt(o.H) + ' mm   |   scale 1:' + fmt(model.dims.scale, 0) + '   |   ages 10 and up', mg, 41);
+      doc.setFontSize(8); doc.text('Independent fan design. Not made, licensed or endorsed by the LEGO Group or INEOS Automotive. LEGO is a trademark of the LEGO Group.', mg, PH - 6);
+      doc.setTextColor(0);
+      // parts pages
+      const cols = 5, rows = 6, cw = (PW - 2 * mg) / cols, rh = (PH - 2 * mg - 14) / rows;
+      for (let i = 0; i < lots.length; i++) {
+        const k = i % (cols * rows);
+        if (k === 0) { doc.addPage(); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Parts you need', mg, mg + 6); doc.setFont('helvetica', 'normal'); }
+        const l = lots[i], x = mg + (k % cols) * cw, y = mg + 14 + Math.floor(k / cols) * rh;
+        doc.addImage(BW.thumb(l.pid, l.color, l.R), 'PNG', x, y, 20, 20);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(l.qty + 'x', x + 22, y + 7);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+        doc.text(doc.splitTextToSize(l.def.n, cw - 26).slice(0, 2), x + 22, y + 12);
+        doc.setTextColor(100); doc.text(l.col.name + '  ' + l.pid, x + 22, y + 19.5); doc.setTextColor(0);
+      }
+      // steps
+      for (let n = 1; n <= total; n++) {
+        const s = model.steps[n - 1];
+        msg.textContent = 'Rendering step ' + n + ' of ' + total + '.';
+        bar.style.width = (n / total) * 100 + '%';
+        await tick();
+        doc.addPage();
+        if (s.parts.length) { off.v.showStep(n, false); off.v.focusStep(n, true, 40); } else { off.v.showAll(); off.v.setView({ az: -0.95, el: 0.3, dist: 40 }, true); }
+        const iw = 186, ih = iw * (1000 / 1240);
+        doc.addImage(off.v.snapshot(1240, 1000, 'image/jpeg', BG), 'JPEG', mg, 44, iw, ih);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(46); doc.text(String(n), mg, 28);
+        doc.setFontSize(9); doc.setTextColor(110); doc.setFont('helvetica', 'normal'); doc.text(s.stage.toUpperCase() + '   STEP ' + n + ' OF ' + total, mg, 37); doc.setTextColor(0);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text(s.title, mg + 30, 22);
+        const rx = mg + iw + 7, rw = PW - mg - rx;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(11.5);
+        const lines = doc.splitTextToSize(s.text, rw);
+        doc.text(lines, rx, 50);
+        let y = 50 + lines.length * 5.2 + 4;
+        if (s.tip) { doc.setFontSize(9.5); doc.setTextColor(150, 70, 0); const tl = doc.splitTextToSize('Tip: ' + s.tip, rw); doc.text(tl, rx, y); y += tl.length * 4.4 + 4; doc.setTextColor(0); }
+        const need = stepLots(n);
+        if (need.length) {
+          doc.setDrawColor(20); doc.setLineWidth(0.4);
+          const top = y, perRow = 3, bw = rw / perRow, bh = 27;
+          need.forEach((l, i) => {
+            const bx = rx + (i % perRow) * bw, by = top + 4 + Math.floor(i / perRow) * bh;
+            doc.addImage(BW.thumb(l.pid, l.color, l.R), 'PNG', bx + bw / 2 - 8, by, 16, 16);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(l.qty + 'x', bx + 2, by + 5);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(6.2);
+            doc.text(doc.splitTextToSize(BW.PARTS[l.pid].n, bw - 3).slice(0, 2), bx + bw / 2, by + 19.5, { align: 'center' });
+          });
+          doc.roundedRect(rx - 2, top, rw + 2, Math.ceil(need.length / perRow) * bh + 6, 2.5, 2.5);
+        }
+      }
+      msg.textContent = 'Saving.';
+      await tick();
+      const ok = await saveFile('grenadier-building-instructions.pdf', doc.output('blob'));
+      closeModal();
+      if (!ok) toast('The booklet was built but could not be saved in this view.');
+    } catch (err) { closeModal(); toast('The booklet could not be built: ' + (err && err.message ? err.message : 'unknown error')); }
+    finally { off.done(); }
+  }
+
+  /* ---------- finish ---------- */
+  function celebrate() {
+    const box = modal('<p class="eyebrow">Step ' + model.steps.length + ' of ' + model.steps.length + '</p><h2>You built it.</h2><p>' + model.parts.length + ' pieces, one Grenadier. Save a picture of your truck, then print the stickers to finish it off.</p>' +
+      '<div class="row"><button class="btn primary" id="savePic">Save a picture</button><a class="btn" href="#stickers" data-close>Print stickers</a><button class="btn" data-close>Close</button></div>');
+    $('#savePic', box).onclick = () => { viewer.showAll(); saveFile('my-grenadier.png', dataUrlBlob(viewer.snapshot(1800, 1200, 'image/png', 0xf6f6f4))); };
+    if (reduced) return;
+    const cv = $('#confetti'), ctx = cv.getContext('2d');
+    cv.hidden = false; cv.width = innerWidth; cv.height = innerHeight;
+    const colors = [BW.COLORS[state.cfg.paint].hex, '#ff6a00', '#111315', '#f2cd37', '#c91a09', '#0055bf'];
+    const bits = Array.from({ length: 140 }, () => ({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5, vx: (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 4, r: Math.random() * 6, w: 8 + Math.random() * 10, c: colors[(Math.random() * colors.length) | 0], s: (Math.random() - 0.5) * 0.3 }));
+    const t0 = performance.now();
+    (function loop(now) {
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      bits.forEach((b) => { b.x += b.vx; b.y += b.vy; b.r += b.s; ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.r); ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.w * 0.3, b.w, b.w * 0.6); ctx.restore(); });
+      if (now - t0 < 3600) requestAnimationFrame(loop); else { cv.hidden = true; }
+    })(t0);
+  }
+
+  /* ================= STICKERS ================= */
+  function sheetLayout(paper) {
+    const W = paper === 'a4' ? 210 : 215.9, H = paper === 'a4' ? 297 : 279.4, m = 14;
+    const items = [], labels = [];
+    let y = m + 30;
+    BW.stickers.defs.forEach((def) => {
+      const copies = def.spares === 0 ? def.qty : def.qty * 2;
+      let x = m, placed = 0;
+      labels.push({ x: m, y: y - 2.2, text: def.name + '   ' + def.w + ' x ' + def.h + ' mm   ' + def.qty + ' needed' + (copies > def.qty ? ', ' + (copies - def.qty) + ' spare' : '') });
+      for (let i = 0; i < copies; i++) {
+        if (x + def.w > W - m) { x = m; y += def.h + 4; }
+        items.push({ id: def.id, x, y, w: def.w, h: def.h }); x += def.w + 5; placed++;
+      }
+      y += def.h + 11;
+    });
+    return { W, H, m, items, labels };
+  }
+  function drawSheet(canvas, pxmm) {
+    const L = sheetLayout(state.paper), d = stickerData(), ctx = canvas.getContext('2d');
+    canvas.width = Math.round(L.W * pxmm); canvas.height = Math.round(L.H * pxmm);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#111'; ctx.textBaseline = 'alphabetic';
+    ctx.font = '600 ' + 5 * pxmm + "px Arial, sans-serif"; ctx.fillText('Grenadier sticker sheet', L.m * pxmm, (L.m + 5) * pxmm);
+    ctx.font = '400 ' + 2.9 * pxmm + "px Arial, sans-serif"; ctx.fillStyle = '#555';
+    ctx.fillText('Print at 100% (actual size) on white sticker paper. Check that the bar measures 50 mm before you cut.', L.m * pxmm, (L.m + 10.5) * pxmm);
+    ctx.fillStyle = '#111'; ctx.fillRect(L.m * pxmm, (L.m + 14) * pxmm, 50 * pxmm, 1.2 * pxmm);
+    for (let i = 0; i <= 5; i++) ctx.fillRect((L.m + i * 10) * pxmm - (i === 5 ? 0.3 * pxmm : 0), (L.m + 13) * pxmm, 0.3 * pxmm, 3.2 * pxmm);
+    ctx.font = '400 ' + 2.6 * pxmm + "px Arial, sans-serif"; ctx.fillStyle = '#555'; ctx.fillText('50 mm', (L.m + 52) * pxmm, (L.m + 15.6) * pxmm);
+    L.labels.forEach((l) => ctx.fillText(l.text, l.x * pxmm, l.y * pxmm));
+    L.items.forEach((it) => {
+      const c = BW.stickers.canvas(it.id, Math.max(8, pxmm * 2), d);
+      ctx.drawImage(c, it.x * pxmm, it.y * pxmm, it.w * pxmm, it.h * pxmm);
+      ctx.strokeStyle = '#b5b8b2'; ctx.lineWidth = Math.max(1, pxmm * 0.12); ctx.setLineDash([pxmm * 0.8, pxmm * 0.8]);
+      if (it.id === 'roundel') { ctx.beginPath(); ctx.arc((it.x + it.w / 2) * pxmm, (it.y + it.h / 2) * pxmm, (it.w / 2 + 0.35) * pxmm, 0, Math.PI * 2); ctx.stroke(); }
+      else ctx.strokeRect((it.x - 0.35) * pxmm, (it.y - 0.35) * pxmm, (it.w + 0.7) * pxmm, (it.h + 0.7) * pxmm);
+      ctx.setLineDash([]);
+    });
+  }
+  function stickerPDF() {
+    if (!window.jspdf) { toast('The PDF library did not load. Check the connection and reload.'); return; }
+    const L = sheetLayout(state.paper), d = stickerData();
+    const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: state.paper === 'a4' ? 'a4' : 'letter', compress: true });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text('Grenadier sticker sheet', L.m, L.m + 5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(85);
+    doc.text('Print at 100% (actual size) on white sticker paper. Check that the bar measures 50 mm before you cut.', L.m, L.m + 10.5);
+    doc.setFillColor(17); doc.rect(L.m, L.m + 14, 50, 1.2, 'F');
+    for (let i = 0; i <= 5; i++) doc.rect(L.m + i * 10 - (i === 5 ? 0.3 : 0), L.m + 13, 0.3, 3.2, 'F');
+    doc.setFontSize(7.5); doc.text('50 mm', L.m + 52, L.m + 15.6);
+    L.labels.forEach((l) => doc.text(l.text, l.x, l.y));
+    doc.setDrawColor(170); doc.setLineWidth(0.1); doc.setLineDashPattern([0.8, 0.8], 0);
+    const cache = {};
+    L.items.forEach((it) => {
+      const url = cache[it.id] || (cache[it.id] = BW.stickers.canvas(it.id, 24, d).toDataURL('image/png'));
+      doc.addImage(url, 'PNG', it.x, it.y, it.w, it.h, it.id, 'FAST');
+      if (it.id === 'roundel') doc.circle(it.x + it.w / 2, it.y + it.h / 2, it.w / 2 + 0.35); else doc.rect(it.x - 0.35, it.y - 0.35, it.w + 0.7, it.h + 0.7);
+    });
+    saveFile('grenadier-stickers-' + state.paper + '.pdf', doc.output('blob'));
+  }
+  function renderStickers() {
+    const s = state.stick;
+    $('#stageUI').innerHTML = '<div class="dock"><div class="chips" id="views">' + [['hero', 'Front left'], ['rear', 'Rear'], ['side', 'Side'], ['top', 'Top']].map((v) => '<button data-v="' + v[0] + '">' + v[1] + '</button>').join('') + '</div></div>';
+    $('#panel').innerHTML =
+      '<div class="p-head"><p class="eyebrow">Step 4 of 4</p><h2>Make it yours</h2><p class="lede">Type your details. The stickers update on the model and on the print sheet.</p></div>' +
+      '<section class="grp two"><label class="field">License plate<input id="st-plate" maxlength="8" value="' + esc(s.plate) + '" autocomplete="off"></label>' +
+      '<label class="field">Door number<input id="st-number" maxlength="3" value="' + esc(s.number) + '" autocomplete="off"></label>' +
+      '<label class="field" style="grid-column:1/-1">Expedition name<input id="st-name" maxlength="22" value="' + esc(s.name) + '" autocomplete="off"></label>' +
+      '<label class="field" style="grid-column:1/-1">Built by<input id="st-builder" maxlength="24" value="' + esc(s.builder) + '" placeholder="Your name" autocomplete="off"></label></section>' +
+      '<section class="grp"><h3>Print sheet</h3><div class="row"><div class="seg" style="flex:1"><button data-paper="letter" class="' + (state.paper === 'letter' ? 'on' : '') + '">US Letter</button><button data-paper="a4" class="' + (state.paper === 'a4' ? 'on' : '') + '">A4</button></div><button class="btn primary" id="stPdf">Save print sheet (PDF)</button></div>' +
+      '<div class="sheet"><canvas id="sheetCv" aria-label="Sticker sheet preview"></canvas></div>' +
+      '<p class="note">Print at 100% on white glossy sticker paper, cut on the dashed lines, and use the 50 mm bar to confirm the scale. Each sticker prints twice so there is a spare.</p></section>' +
+      '<section class="grp"><h3>Where they go</h3><ul class="where">' + BW.stickers.defs.map((d) => '<li><b>' + esc(d.name) + '</b><span>' + esc(d.where) + '</span></li>').join('') + '</ul>' +
+      '<p class="note">Brand badges are left off the sheet on purpose. The plate, stripe and number are yours to name.</p></section>';
+    drawSheet($('#sheetCv'), 5);
+  }
+  let stickT = 0;
+  function onStickerInput(e) {
+    const id = e.target.id; if (!/^st-/.test(id)) return;
+    state.stick[id.slice(3)] = e.target.value;
+    store.set('stick', state.stick);
+    clearTimeout(stickT);
+    stickT = setTimeout(() => { applyDecals(); const cv = $('#sheetCv'); if (cv) drawSheet(cv, 5); }, 120);
+  }
+
+  /* ================= PHOTO LAB ================= */
+  const photo = { subject: '', custom: false, src: null, name: 'Sample picture', size: '48x48', set: 'full', dither: true, element: 'roundplate', base: 'black', grid: true, adj: { brightness: 100, contrast: 105, saturation: 115 }, q: null, sec: [0, 0], row: null, brief: null, briefBusy: false, spares: true };
+  const SIZES = { '32x32': 'Small 32 x 32', '48x48': 'Medium 48 x 48', '48x32': 'Wide 48 x 32', '64x48': 'Large 64 x 48', '32x48': 'Tall 32 x 48' };
+  function photoQ() {
+    const [W, H] = photo.size.split('x').map(Number);
+    if (!photo.src) photo.src = BW.mosaic.demoImage();
+    photo.q = BW.mosaic.quantize(BW.mosaic.sample(photo.src, W, H, photo.adj), W, H, BW.mosaic.SETS[photo.set], photo.dither);
+    photo.sec = [Math.min(photo.sec[0], W / 16 - 1), Math.min(photo.sec[1], H / 16 - 1)];
+  }
+  function photoItems() {
+    const q = photo.q, el = BW.mosaic.ELEMENTS[photo.element];
+    const items = q.pal.map((p, i) => ({ pid: el.pid, bl: p.bl, name: el.name, color: p.name, hex: p.hex, n: i + 1, qty: q.counts[i] })).filter((x) => x.qty > 0);
+    if (photo.spares) items.forEach((x) => { x.qty = Math.ceil(x.qty * 1.05); });
+    const plates = (q.W / 16) * (q.H / 16);
+    return { items, plates, base: { pid: '91405', bl: photo.base === 'white' ? 1 : 11, name: 'Plate 16 x 16', color: photo.base === 'white' ? 'White' : 'Black', qty: plates } };
+  }
+  function renderPhoto() {
+    if (!photo.q) photoQ();
+    const q = photo.q, wide = $('#wide'), top = wide.scrollTop, it = photoItems();
+    const pieces = q.W * q.H, colors = it.items.length, mmW = q.W * 8, mmH = q.H * 8;
+    const opt = (obj, cur) => Object.keys(obj).map((k) => '<option value="' + k + '"' + (k === cur ? ' selected' : '') + '>' + esc(obj[k]) + '</option>').join('');
+    const secBtns = []; for (let y = 0; y < q.H / 16; y++) for (let x = 0; x < q.W / 16; x++) secBtns.push('<button data-sec="' + x + ',' + y + '" class="' + (photo.sec[0] === x && photo.sec[1] === y ? 'on' : '') + '">' + String.fromCharCode(65 + y) + (x + 1) + '</button>');
+    const lum = (h) => parseInt(h.slice(1, 3), 16) * 0.3 + parseInt(h.slice(3, 5), 16) * 0.59 + parseInt(h.slice(5, 7), 16) * 0.11;
+    wide.innerHTML = '<div class="two-col"><div class="col">' +
+      '<p class="eyebrow">New project from a picture</p><div class="h-row"><h2>Photo Lab</h2></div>' +
+      '<p class="lede">' + (window.BW_PUBLIC ? 'Drop in any picture and the lab turns it into a stud mosaic with a parts list, a BrickLink wanted list and a numbered plan.' : 'Two ways to start a project. Drop in any picture and the lab turns it into a stud mosaic with a parts list, a wanted list and a numbered plan. Or name a subject on the right and commission a full 3D model like the Grenadier, with or without a picture.') + '</p>' +
+      '<div class="drop" id="drop"><p><b>' + esc(photo.name) + '</b><br>Drop a picture here, or choose a file. It stays on your device.</p><label class="btn" for="file">Choose a picture</label><input type="file" id="file" accept="image/*" hidden><button class="btn" id="useDemo">Use the sample</button></div>' +
+      '<div class="mos"><figure><canvas id="mosCv" aria-label="Mosaic preview"></canvas><figcaption>' + q.W + ' x ' + q.H + ' studs. ' + fmt(mmW) + ' x ' + fmt(mmH) + ' mm (' + fmt(mmW / 25.4, 1) + ' x ' + fmt(mmH / 25.4, 1) + ' in). Orange lines mark the 16 x 16 sections.</figcaption></figure>' +
+      '<figure><canvas id="secCv" aria-label="Section plan"></canvas><figcaption>Section ' + String.fromCharCode(65 + photo.sec[1]) + (photo.sec[0] + 1) + (photo.row == null ? ', all rows' : ', row ' + (photo.row + 1) + ' of 16') + '. Numbers match the color list.</figcaption>' +
+      '<div class="row" style="margin-top:8px"><button class="btn small" id="rowPrev">Row back</button><button class="btn small" id="rowNext">' + (photo.row == null ? 'Build row by row' : 'Next row') + '</button>' + (photo.row != null ? '<button class="btn small" id="rowAll">Show all rows</button>' : '') + '</div>' +
+      '<div class="secs" style="grid-template-columns:repeat(' + q.W / 16 + ',1fr)">' + secBtns.join('') + '</div></figure></div>' +
+      '<p class="side-h" style="margin-top:26px">Color list</p><div class="legend">' + it.items.map((x) => '<div><i style="--c:' + x.hex + ';--t:' + (lum(x.hex) > 140 ? '#111' : '#fff') + '">' + x.n + '</i>' + esc(x.color) + '<span>' + x.qty + '</span></div>').join('') + '</div></div>' +
+      '<aside><p class="side-h">Settings</p><div class="stack" style="gap:12px">' +
+      '<label class="field">Size<select id="ph-size">' + opt(SIZES, photo.size) + '</select></label>' +
+      '<label class="field">Colors<select id="ph-set">' + opt({ full: 'Full palette, 24 colors', classic: 'Classic, 10 colors', mono: 'Black and white, 4 grays' }, photo.set) + '</select></label>' +
+      '<label class="field">Piece<select id="ph-element">' + opt({ roundplate: 'Round 1 x 1 plate', roundtile: 'Round 1 x 1 tile', plate: 'Square 1 x 1 plate', tile: 'Square 1 x 1 tile' }, photo.element) + '</select></label>' +
+      '<label class="field">Base plates<select id="ph-base">' + opt({ black: 'Black', white: 'White' }, photo.base) + '</select></label>' +
+      ['brightness', 'contrast', 'saturation'].map((k) => '<label class="range">' + k[0].toUpperCase() + k.slice(1) + '<input type="range" id="ph-' + k + '" min="60" max="160" value="' + photo.adj[k] + '"><span>' + photo.adj[k] + '</span></label>').join('') +
+      '<button class="tg" data-ph="dither" aria-pressed="' + photo.dither + '"><span>Blend colors<small>Dithering smooths gradients</small></span><i></i></button>' +
+      '<button class="tg" data-ph="spares" aria-pressed="' + photo.spares + '"><span>Add 5% spares<small>Small pieces go missing</small></span><i></i></button></div>' +
+      '<p class="side-h">Your kit</p><div class="sum"><div><b>' + fmt(pieces) + '</b>studs</div><div><b>' + colors + '</b>colors</div><div><b>' + it.plates + '</b>base plates</div></div>' +
+      '<div class="stack"><button class="btn primary" id="phXml">Copy BrickLink wanted list</button><div class="row"><button class="btn small" id="phCsv">Save list as .csv</button><button class="btn small" id="phPdf">Save plan (PDF)</button></div></div>' +
+      '<p class="note">Budget guide: <b>$' + fmt(pieces * 0.03) + ' to $' + fmt(pieces * 0.07) + '</b> for the studs at 3 to 7 cents each, plus ' + it.plates + ' base plates. An estimate, before shipping.</p>' +
+      (window.BW_PUBLIC ? '' : '<p class="side-h">Commission a 3D model</p><div id="briefBox"></div>') + '</aside></div>';
+    wide.scrollTop = top;
+    BW.mosaic.draw($('#mosCv'), q, { cell: Math.max(6, Math.floor(960 / q.W)), element: photo.element, base: photo.base, grid: true });
+    BW.mosaic.drawSection($('#secCv'), q, photo.sec[0], photo.sec[1], 40, photo.row);
+    renderBrief();
+  }
+  function requestText() {
+    const subject = photo.subject.trim();
+    const lines = ['New Brickwright model request', 'Subject: ' + (subject || (photo.custom ? 'the attached picture' : '(name it here)'))];
+    if (photo.custom) lines.push('Reference: my picture is attached. Search online for more reference images of the other sides (front, side, rear, top, interior) so every detail is matched, not approximated.');
+    else lines.push('Reference: no picture supplied. Before designing, search online for reference images of the subject from the front, side, rear, top and interior. List the signature details you will match, with the source of each, and show me the list first.');
+    lines.push('Target: a set a 10-year-old can build, 8 studs wide unless the subject needs otherwise.');
+    lines.push('Deliver: the model in the Brickwright format, checked for collisions, connections and build order in every option, added to the Brickwright Build Studio with its parts list, steps, detail list and stickers.');
+    if (photo.brief && !photo.brief.error) lines.push('Brief from the picture:', JSON.stringify(photo.brief, null, 2));
+    return lines.join('\n');
+  }
+  function renderBrief() {
+    const box = $('#briefBox'); if (!box) return;
+    const b = photo.brief;
+    let html = '<p class="note" style="margin-top:0">A 3D kit like the Grenadier is engineered, not converted: reference photos of every side, part choices, then a structural check. Name the subject and send the request to Claude in the project chat.</p>' +
+      '<label class="field" style="margin-top:12px">What do you want to build?<input id="ph-subject" maxlength="80" value="' + esc(photo.subject) + '" placeholder="A 1972 pickup, our fishing boat, a red barn" autocomplete="off"></label>' +
+      '<div class="row" style="margin-top:10px"><button class="btn primary" id="reqCopy">Copy request for Claude</button></div>' +
+      '<p class="note"><b>No picture? That is fine.</b> The request tells Claude to search the web for reference photos of the front, side, rear, top and interior, and to list the details it will match before it designs. This page cannot browse the web, so that search runs in the chat.</p>';
+    if (photo.briefBusy) html += '<div class="brief"><p>Claude is studying the picture. This can take a minute.</p></div>';
+    else if (b && b.error) html += '<div class="brief"><p>' + esc(b.error) + '</p></div>';
+    else if (b) {
+      const list = (a) => (Array.isArray(a) && a.length ? '<ul>' + a.slice(0, 8).map((x) => '<li>' + esc(typeof x === 'string' ? x : (x.role ? x.role + ': ' : '') + (x.lego_color || x.name || JSON.stringify(x))) + '</li>').join('') + '</ul>' : '');
+      html += '<div class="brief"><h4>' + esc(b.subject || 'Build brief') + '</h4><p>' + esc(b.summary || '') + '</p>' +
+        '<p><b>' + esc(String(b.recommended_width_studs || '?')) + ' studs wide</b>, about ' + esc(String(b.approx_pieces || '?')) + ' pieces, ' + esc(String(b.difficulty || '')) + '</p>' +
+        '<p><b>Signature features</b></p>' + list(b.signature_features) + '<p><b>Colors</b></p>' + list(b.palette) + '<p><b>Techniques</b></p>' + list(b.techniques) +
+        '<p class="note" style="margin-top:0">This brief is now part of the request above.</p></div>';
+    }
+    html += '<div class="row" style="margin-top:10px"><button class="btn" id="briefGo"' + (photo.briefBusy ? ' disabled' : '') + '>' + (b && !b.error ? 'Study the picture again' : 'Have Claude study this picture') + '</button></div>' +
+      '<p class="note">Optional. Claude looks at the picture on this page and adds a first read of its features, colors and scale to the request.</p>';
+    box.innerHTML = html;
+  }
+  async function askBrief() {
+    await cap.ready;
+    if (!cap.sample || !cap.images) { photo.brief = { error: 'Asking Claude is not available in this view. Open the artifact in Claude, or attach the picture in the project chat and ask for a Brickwright model.' }; renderBrief(); return; }
+    photo.briefBusy = true; photo.brief = null; renderBrief();
+    try {
+      const c = document.createElement('canvas'), s = photo.src, sw = s.naturalWidth || s.width, sh = s.naturalHeight || s.height, k = Math.min(1, 1024 / Math.max(sw, sh));
+      c.width = Math.round(sw * k); c.height = Math.round(sh * k); c.getContext('2d').drawImage(s, 0, 0, c.width, c.height);
+      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.88));
+      const prompt = 'The image is a reference photo for a custom model built from LEGO-compatible bricks, sized like a typical set a 10-year-old can build. Study it and reply with only one JSON object, no other text, in this shape: ' +
+        '{"subject": string, "summary": one sentence, "recommended_width_studs": number, "scale": string like "1:30", "approx_pieces": number, "difficulty": "easy"|"medium"|"hard", ' +
+        '"signature_features": up to 6 short strings naming the features the model must capture to be recognizable, "palette": up to 6 {"role": string, "lego_color": official LEGO color name}, ' +
+        '"techniques": up to 5 short strings naming brick-building techniques or part types to use, "cautions": up to 3 short strings}.';
+      photo.brief = await cap.sample.json(prompt, { images: [blob] });
+    } catch (e) {
+      const code = e && e.code;
+      photo.brief = { error: code === 'not_granted' ? 'Claude was not allowed for this page, so no brief was written.' : code === 'rate_limited' ? 'Claude is busy or the usage limit was reached. Try again later.' : code === 'refused' ? 'Claude declined this picture. Try a different one.' : 'The brief could not be written this time. Try again.' };
+    }
+    photo.briefBusy = false; renderBrief();
+  }
+  function loadPhotoFile(file) {
+    if (!file || !/^image\//.test(file.type)) { toast('Choose an image file such as a JPEG or PNG.'); return; }
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { photo.src = img; photo.name = file.name; photo.custom = true; photo.brief = null; photo.row = null; photoQ(); renderPhoto(); };
+    img.onerror = () => toast('That picture could not be opened.');
+    img.src = url;
+  }
+  function photoXML() { const it = photoItems(); return bricklinkXML(it.items.concat([it.base])); }
+  function photoPDF() {
+    if (!window.jspdf) { toast('The PDF library did not load. Check the connection and reload.'); return; }
+    const q = photo.q, it = photoItems(), doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter', compress: true });
+    const cv = document.createElement('canvas');
+    BW.mosaic.draw(cv, q, { cell: 16, element: photo.element, base: photo.base, grid: true });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Mosaic plan', 14, 20);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(q.W + ' x ' + q.H + ' studs, ' + q.W * 8 + ' x ' + q.H * 8 + ' mm, ' + it.plates + ' base plates. Build one 16 x 16 section at a time.', 14, 27);
+    const iw = Math.min(188, 150 * (q.W / q.H)), ih = iw * (q.H / q.W);
+    doc.addImage(cv.toDataURL('image/jpeg', 0.9), 'JPEG', 14, 33, iw, ih);
+    let y = 33 + ih + 10; doc.setFontSize(9);
+    it.items.forEach((x, i) => { const cx = 14 + (i % 3) * 62, cy = y + Math.floor(i / 3) * 6; doc.setFillColor(x.hex); doc.circle(cx + 2, cy - 1.2, 2, 'F'); doc.text(x.n + '  ' + x.color + '   x' + x.qty, cx + 6, cy); });
+    for (let sy = 0; sy < q.H / 16; sy++) for (let sx = 0; sx < q.W / 16; sx++) {
+      doc.addPage(); BW.mosaic.drawSection(cv, q, sx, sy, 60, null);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Section ' + String.fromCharCode(65 + sy) + (sx + 1), 14, 20);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text('Row ' + String.fromCharCode(65 + sy) + ', column ' + (sx + 1) + '. Work left to right, top to bottom.', 14, 27);
+      doc.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', 14, 33, 188, 188);
+    }
+    saveFile('mosaic-plan.pdf', doc.output('blob'));
+  }
+  function onPhotoClick(e) {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.sec) { photo.sec = t.dataset.sec.split(',').map(Number); photo.row = null; renderPhoto(); }
+    else if (t.dataset.ph) { photo[t.dataset.ph] = !photo[t.dataset.ph]; if (t.dataset.ph === 'dither') photoQ(); renderPhoto(); }
+    else if (t.id === 'useDemo') { photo.src = BW.mosaic.demoImage(); photo.name = 'Sample picture'; photo.custom = false; photo.brief = null; photoQ(); renderPhoto(); }
+    else if (t.id === 'rowNext') { photo.row = photo.row == null ? 0 : (photo.row + 1) % 16; renderPhoto(); }
+    else if (t.id === 'rowPrev') { photo.row = photo.row == null ? 15 : (photo.row + 15) % 16; renderPhoto(); }
+    else if (t.id === 'rowAll') { photo.row = null; renderPhoto(); }
+    else if (t.id === 'phXml') copyText(photoXML(), 'Wanted list');
+    else if (t.id === 'phCsv') { const it = photoItems(); saveFile('mosaic-parts.csv', csv([['Quantity', 'BrickLink part', 'Part name', 'Color', 'BrickLink color id']].concat(it.items.concat([it.base]).map((x) => [x.qty, x.pid, x.name, x.color, x.bl])))); }
+    else if (t.id === 'phPdf') photoPDF();
+    else if (t.id === 'briefGo') askBrief();
+    else if (t.id === 'reqCopy') {
+      if (!photo.subject.trim() && !photo.custom) { toast('Name what you want to build first.'); const f = $('#ph-subject'); if (f) f.focus(); return; }
+      copyText(requestText(), 'Request');
+    }
+  }
+  function onPhotoChange(e) {
+    const id = e.target.id;
+    if (id === 'file') { loadPhotoFile(e.target.files[0]); return; }
+    if (id === 'ph-subject') { photo.subject = e.target.value; return; }
+    if (!/^ph-/.test(id)) return;
+    const k = id.slice(3);
+    if (k in photo.adj) photo.adj[k] = +e.target.value; else photo[k] = e.target.value;
+    photoQ(); renderPhoto();
+  }
+
+  /* ================= boot ================= */
+  function boot() {
+    if (!window.THREE) { $('#panel').innerHTML = '<div class="p-head"><h2>The 3D library did not load</h2><p class="lede">Check the connection and reload the page.</p></div>'; return; }
+    viewer = BW.createViewer($('#viewer'), {});
+    rebuild();
+    const tip = $('#tip');
+    let tipT = 0;
+    viewer.onPick((p, x, y, tap) => {
+      if (!p) { tip.hidden = true; return; }
+      tip.innerHTML = esc(BW.PARTS[p.pid].n) + '<small>' + esc(BW.COLORS[p.color].name) + ' · ' + p.pid + ' · step ' + p.step + '</small>';
+      tip.style.left = Math.min(x, innerWidth - 300) + 'px'; tip.style.top = y + 'px'; tip.hidden = false;
+      clearTimeout(tipT); if (tap) tipT = setTimeout(() => { tip.hidden = true; }, 2600);
+    });
+    $('#panel').addEventListener('click', (e) => {
+      if (state.view === 'design') onDesignClick(e);
+      else if (state.view === 'build') { const t = e.target.closest('button'); if (!t) return; if (t.id === 'next') goStep(state.step + 1); else if (t.id === 'prev') goStep(state.step - 1); else if (t.id === 'booklet') makeBooklet(); }
+      else if (state.view === 'stickers') { const t = e.target.closest('button'); if (!t) return; if (t.dataset.paper) { state.paper = t.dataset.paper; store.set('paper', state.paper); renderStickers(); } else if (t.id === 'stPdf') stickerPDF(); }
+    });
+    $('#panel').addEventListener('input', onStickerInput);
+    $('#stageUI').addEventListener('click', onStageClick);
+    $('#stageUI').addEventListener('input', (e) => { if (e.target.id === 'explode') { state.explode = +e.target.value; viewer.setExplode(state.explode); if (state.explode > 0 && state.spin) { /* keep turning */ } } });
+    $('#wide').addEventListener('click', onWideClick);
+    $('#wide').addEventListener('change', onPhotoChange);
+    $('#wide').addEventListener('input', (e) => { if (e.target.id === 'ph-subject') photo.subject = e.target.value; });
+    $('#wide').addEventListener('dragover', (e) => { const d = e.target.closest('#drop'); if (d) { e.preventDefault(); d.classList.add('over'); } });
+    $('#wide').addEventListener('dragleave', (e) => { const d = e.target.closest('#drop'); if (d) d.classList.remove('over'); });
+    $('#wide').addEventListener('drop', (e) => { if (state.view !== 'photo-lab') return; e.preventDefault(); loadPhotoFile(e.dataTransfer.files[0]); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$('#modal').hidden) { closeModal(); return; }
+      if (state.view !== 'build' || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || !$('#modal').hidden) return;
+      if (e.key === 'ArrowRight') goStep(state.step + 1); else if (e.key === 'ArrowLeft') goStep(state.step - 1);
+    });
+    window.addEventListener('hashchange', route);
+    route();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { applyDecals(); if (state.view === 'stickers') renderStickers(); });
+  }
+  cap.ready = (async () => {
+    const c = window.claude;
+    if (window.BW_PUBLIC || !c || typeof c.use !== 'function') { cap.native = true; return; }
+    try { cap.downloads = await c.use('downloads'); } catch (e) { /* absent */ }
+    try { cap.sample = await c.use('sample'); if (cap.sample) { const lim = await cap.sample.limits().catch(() => null); cap.images = !!(lim && lim.images); } } catch (e) { /* absent */ }
+  })();
+  BW.app = { state, get model() { return model; }, get viewer() { return viewer; }, cap };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+
+</script>
+</body>
+</html>
